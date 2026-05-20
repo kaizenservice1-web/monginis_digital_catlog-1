@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 
 const Admin = require('../models/Admin');
 
@@ -44,13 +45,36 @@ const login = async (req, res) => {
     return res.status(400).json({ message: 'Email and password required' });
   }
 
-  const admin = await Admin.findOne({ email: normalizedEmail });
-  if (!admin) {
-    return res.status(401).json({ message: 'Invalid credentials' });
+  const envAdminEmail = String(process.env.ADMIN_EMAIL || 'owner@monginis.com').toLowerCase().trim();
+  const envAdminHash = String(process.env.ADMIN_PASSWORD_HASH || '').trim();
+
+  if (mongoose.connection.readyState === 1) {
+    const admin = await Admin.findOne({ email: normalizedEmail });
+    if (admin) {
+      const ok = await bcrypt.compare(pw, admin.passwordHash);
+      if (!ok) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        return res.status(500).json({ message: 'Server misconfigured (missing JWT_SECRET)' });
+      }
+
+      const token = jwt.sign(
+        { email: admin.email },
+        secret,
+        {
+          subject: String(admin._id),
+          expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+        }
+      );
+
+      return res.json({ token });
+    }
   }
 
-  const ok = await bcrypt.compare(pw, admin.passwordHash);
-  if (!ok) {
+  if (normalizedEmail !== envAdminEmail || !envAdminHash) {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
 
@@ -59,13 +83,15 @@ const login = async (req, res) => {
     return res.status(500).json({ message: 'Server misconfigured (missing JWT_SECRET)' });
   }
 
+  const ok = await bcrypt.compare(pw, envAdminHash);
+  if (!ok) {
+    return res.status(401).json({ message: 'Invalid credentials' });
+  }
+
   const token = jwt.sign(
-    { email: admin.email },
+    { email: normalizedEmail },
     secret,
-    {
-      subject: String(admin._id),
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    }
+    { subject: 'env-admin', expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 
   return res.json({ token });

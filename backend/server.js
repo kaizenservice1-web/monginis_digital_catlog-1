@@ -42,6 +42,10 @@ app.get('/api/health', (req, res) => {
 // All remaining /api endpoints require MongoDB.
 // When Atlas IP whitelist blocks access (or URI is missing), return a clear 503 instead of hanging.
 app.use('/api', (req, res, next) => {
+  if (req.path === '/admin/login') {
+    return next();
+  }
+
   if (!hasRealMongoUri) {
     return res.status(503).json({
       message: 'Database not configured. Set a real MONGODB_URI in backend/.env and restart the server.',
