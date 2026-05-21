@@ -29,7 +29,7 @@ if (!hasRealMongoUri) {
 
 app.use(cors({
   origin: 'https://monginis-digital-catlog.vercel.app',
-  credentials: FALSE,
+  credentials: true,
 }));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
