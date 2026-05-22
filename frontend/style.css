@@ -433,6 +433,23 @@ img{max-width:100%;display:block;}
 .img-chip button{position:absolute;right:8px;top:8px;min-width:36px;min-height:36px;border-radius:14px;border:1px solid rgba(216,27,96,.25);background:rgba(255,255,255,.9);box-shadow:var(--shadow-soft);}
 
 /* Responsive */
+@media (max-width:768px){
+  .mobile-menu{
+    max-height:0;
+    opacity:0;
+    transform:translateY(-8px);
+    pointer-events:none;
+    overflow:hidden;
+    transition:max-height .28s ease, opacity .22s ease, transform .28s ease;
+  }
+  .mobile-menu.is-open{
+    max-height:360px;
+    opacity:1;
+    transform:translateY(0);
+    pointer-events:auto;
+  }
+}
+
 @media (min-width:760px){
   .h1{font-size:42px;}
   .grid{grid-template-columns:repeat(2,1fr);} 

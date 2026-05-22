@@ -86,15 +86,48 @@
     const menu = $('#mobileMenu');
     if (!btn || !menu) return;
 
-    const close = () => {
-      menu.hidden = true;
+    const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+
+    const openMenu = () => {
+      menu.hidden = false;
+      if (isMobile()) {
+        requestAnimationFrame(() => {
+          menu.classList.add('is-open');
+        });
+      } else {
+        menu.classList.add('is-open');
+      }
+      btn.setAttribute('aria-expanded', 'true');
+    };
+
+    const closeMenu = () => {
+      menu.classList.remove('is-open');
       btn.setAttribute('aria-expanded', 'false');
+
+      if (!isMobile()) {
+        menu.hidden = true;
+        return;
+      }
+
+      const onEnd = () => {
+        menu.hidden = true;
+      };
+
+      menu.addEventListener('transitionend', onEnd, { once: true });
+      setTimeout(() => {
+        if (!menu.hidden && !menu.classList.contains('is-open')) {
+          menu.hidden = true;
+        }
+      }, 350);
     };
 
     btn.addEventListener('click', () => {
-      const open = menu.hidden;
-      menu.hidden = !open;
-      btn.setAttribute('aria-expanded', String(open));
+      const open = menu.hidden || !menu.classList.contains('is-open');
+      if (open) {
+        openMenu();
+      } else {
+        closeMenu();
+      }
     });
 
     document.addEventListener('click', (e) => {
@@ -102,7 +135,7 @@
       const target = e.target;
       if (!(target instanceof Element)) return;
       if (target.closest('#mobileMenu') || target.closest('.burger')) return;
-      close();
+      closeMenu();
     });
   };
 
