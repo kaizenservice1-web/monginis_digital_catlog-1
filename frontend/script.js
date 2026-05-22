@@ -1,6 +1,6 @@
 /* Monginis Catalog — vanilla JS */
 (() => {
-  const API_BASE_URL = 'https://monginis-digicatlog.onrender.com';
+  const API_BASE_URL = 'https://monginis-digital-catlog-1.onrender.com';
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
