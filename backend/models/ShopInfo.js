@@ -13,6 +13,7 @@ const ShopInfoSchema = new mongoose.Schema(
 
     googleMapsUrl: { type: String, default: '' },
     googleMapsEmbedUrl: { type: String, default: '' },
+    googleReviewsUrl: { type: String, default: '' },
   },
   { timestamps: true }
 );

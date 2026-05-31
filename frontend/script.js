@@ -21,6 +21,7 @@
     facebookUrl: '',
     googleMapsUrl: 'https://maps.app.goo.gl/WbYHNrevSWsr88Fx5?g_st=ac',
     googleMapsEmbedUrl: '',
+    googleReviewsUrl: '',
   };
 
   const jsonFetch = async (path, opts = {}) => {
@@ -322,6 +323,19 @@
 
     const waLinks = $$('[data-social="wa"]');
     waLinks.forEach(el => el.setAttribute('href', makeWhatsAppLink({ whatsappNumber: info.whatsappNumber, message: 'Hi Monginis! I want to inquire about a cake.' })));
+
+    const socialLinks = $$('[data-social]');
+    socialLinks.forEach(el => {
+      el.setAttribute('target', '_blank');
+      el.setAttribute('rel', 'noopener noreferrer');
+    });
+
+    const reviewLinks = $$('[data-review="google"]');
+    reviewLinks.forEach(el => {
+      el.setAttribute('href', safeUrl(info.googleReviewsUrl) || '#');
+      el.setAttribute('target', '_blank');
+      el.setAttribute('rel', 'noopener noreferrer');
+    });
 
     const emailLinks = $$('[data-contact-link="email"]');
     emailLinks.forEach(el => el.setAttribute('href', `mailto:${info.email || DEFAULT_SHOP_INFO.email}`));
@@ -1099,6 +1113,8 @@
       $('#shopInstagram').value = info.instagramUrl || '';
       $('#shopFacebook').value = info.facebookUrl || '';
       $('#shopMaps').value = info.googleMapsUrl || info.googleMapsEmbedUrl || '';
+      const reviewsField = $('#shopReviews');
+      if (reviewsField) reviewsField.value = info.googleReviewsUrl || '';
     };
 
     const renderAnalytics = (cakes) => {
@@ -1409,6 +1425,7 @@
           facebookUrl: $('#shopFacebook').value,
           googleMapsUrl: $('#shopMaps').value,
           googleMapsEmbedUrl: $('#shopMaps').value,
+          googleReviewsUrl: $('#shopReviews') ? $('#shopReviews').value : '',
         };
         await authedFetch('/api/shop-info', {
           method: 'PUT',

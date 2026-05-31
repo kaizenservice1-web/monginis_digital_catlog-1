@@ -10,6 +10,7 @@ const DEFAULT_SHOP_INFO = {
   facebookUrl: '',
   googleMapsUrl: 'https://maps.app.goo.gl/WbYHNrevSWsr88Fx5?g_st=ac',
   googleMapsEmbedUrl: '',
+  googleReviewsUrl: '',
 };
 
 const getShopInfo = async (req, res) => {
@@ -28,6 +29,7 @@ const getShopInfo = async (req, res) => {
     facebookUrl: info.facebookUrl,
     googleMapsUrl: info.googleMapsUrl,
     googleMapsEmbedUrl: info.googleMapsEmbedUrl,
+    googleReviewsUrl: info.googleReviewsUrl,
   });
 };
 
@@ -42,6 +44,7 @@ const updateShopInfo = async (req, res) => {
     facebookUrl: String(req.body?.facebookUrl || ''),
     googleMapsUrl: String(req.body?.googleMapsUrl || ''),
     googleMapsEmbedUrl: String(req.body?.googleMapsEmbedUrl || ''),
+    googleReviewsUrl: String(req.body?.googleReviewsUrl || ''),
   };
 
   let info = await ShopInfo.findOne();
