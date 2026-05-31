@@ -364,8 +364,14 @@
         <h3>${escapeHtml(title)}</h3>
         <p>${escapeHtml(desc || ' ')}</p>
         <div class="actions">
-          <button class="like-btn" type="button" aria-label="Like"><i class="fa-regular fa-heart"></i></button>
-          <button class="dislike-btn" type="button" aria-label="Dislike"><i class="fa-regular fa-thumbs-down"></i></button>
+          <button class="reaction-btn like-btn" type="button" aria-label="Like" aria-pressed="false">
+            <i class="fa-regular fa-heart"></i>
+            <span class="count" data-count-like>${Number(cake.likes) || 0}</span>
+          </button>
+          <button class="reaction-btn dislike-btn" type="button" aria-label="Dislike" aria-pressed="false">
+            <i class="fa-regular fa-thumbs-down"></i>
+            <span class="count" data-count-dislike>${Number(cake.dislikes) || 0}</span>
+          </button>
         </div>
       </div>
     `;
@@ -385,6 +391,41 @@
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const escapeAttr = (s) => escapeHtml(s);
 
+  const getCountEl = (wrap, type) => (
+    wrap?.querySelector(`[data-count-${type}]`) ||
+    wrap?.querySelector(`[data-${type}-count]`)
+  );
+
+  const bumpCount = (el) => {
+    if (!el) return;
+    el.classList.remove('count-bump');
+    void el.offsetWidth;
+    el.classList.add('count-bump');
+    el.addEventListener('animationend', () => el.classList.remove('count-bump'), { once: true });
+  };
+
+  const triggerPulse = (btn) => {
+    if (!btn) return;
+    btn.classList.remove('is-pulse');
+    void btn.offsetWidth;
+    btn.classList.add('is-pulse');
+    btn.addEventListener('animationend', () => btn.classList.remove('is-pulse'), { once: true });
+  };
+
+  const setReactionActive = (wrap, activeType) => {
+    if (!wrap) return;
+    const likeBtn = wrap.querySelector('.like-btn');
+    const dislikeBtn = wrap.querySelector('.dislike-btn');
+    if (likeBtn) {
+      likeBtn.classList.toggle('is-active', activeType === 'like');
+      likeBtn.setAttribute('aria-pressed', activeType === 'like' ? 'true' : 'false');
+    }
+    if (dislikeBtn) {
+      dislikeBtn.classList.toggle('is-active', activeType === 'dislike');
+      dislikeBtn.setAttribute('aria-pressed', activeType === 'dislike' ? 'true' : 'false');
+    }
+  };
+
   const wireCakeActionDelegation = (root) => {
     root.addEventListener('click', async (e) => {
       const target = e.target;
@@ -398,6 +439,16 @@
       const likeBtn = target.closest('button.like-btn');
       const dislikeBtn = target.closest('button.dislike-btn');
       if (!likeBtn && !dislikeBtn) return;
+
+      const action = likeBtn ? 'like' : 'dislike';
+      setReactionActive(card, action);
+      triggerPulse(likeBtn || dislikeBtn);
+      const countEl = getCountEl(card, action);
+      const prevCount = countEl ? Number(countEl.textContent) || 0 : null;
+      if (countEl) {
+        countEl.textContent = String(prevCount + 1);
+        bumpCount(countEl);
+      }
 
       try {
         if (likeBtn) {
@@ -416,6 +467,10 @@
           });
         }
       } catch (err) {
+        if (countEl && prevCount !== null) {
+          countEl.textContent = String(prevCount);
+          bumpCount(countEl);
+        }
         console.warn(err);
       }
     });
@@ -737,8 +792,16 @@
               <h1 class="title">${escapeHtml(cake.name || 'Cake')}</h1>
               ${cake.description ? `<p class="sub">${escapeHtml(cake.description)}</p>` : `<p class="sub">Premium Monginis creation.</p>`}
               <div class="detail-actions">
-                <button class="pill-btn" type="button" data-detail-like><i class="fa-regular fa-heart"></i> Like</button>
-                <button class="pill-btn" type="button" data-detail-dislike><i class="fa-regular fa-thumbs-down"></i> Dislike</button>
+                <button class="reaction-btn like-btn" type="button" data-detail-like aria-label="Like" aria-pressed="false">
+                  <i class="fa-regular fa-heart"></i> Like
+                </button>
+                <button class="reaction-btn dislike-btn" type="button" data-detail-dislike aria-label="Dislike" aria-pressed="false">
+                  <i class="fa-regular fa-thumbs-down"></i> Dislike
+                </button>
+              </div>
+              <div class="reaction-counts" aria-live="polite">
+                <span class="reaction-count like"><span class="emoji">👍</span><span data-like-count>${Number(cake.likes) || 0}</span></span>
+                <span class="reaction-count dislike"><span class="emoji">👎</span><span data-dislike-count>${Number(cake.dislikes) || 0}</span></span>
               </div>
             </div>
 
@@ -794,6 +857,14 @@
 
       if (likeBtn) {
         likeBtn.addEventListener('click', async () => {
+          setReactionActive(root, 'like');
+          triggerPulse(likeBtn);
+          const countEl = getCountEl(root, 'like');
+          const prevCount = countEl ? Number(countEl.textContent) || 0 : null;
+          if (countEl) {
+            countEl.textContent = String(prevCount + 1);
+            bumpCount(countEl);
+          }
           try {
             await jsonFetch('/api/like', {
               method: 'POST',
@@ -801,6 +872,10 @@
               body: JSON.stringify({ cakeId: cake._id }),
             });
           } catch (err) {
+            if (countEl && prevCount !== null) {
+              countEl.textContent = String(prevCount);
+              bumpCount(countEl);
+            }
             console.warn(err);
           }
         });
@@ -808,6 +883,14 @@
 
       if (dislikeBtn) {
         dislikeBtn.addEventListener('click', async () => {
+          setReactionActive(root, 'dislike');
+          triggerPulse(dislikeBtn);
+          const countEl = getCountEl(root, 'dislike');
+          const prevCount = countEl ? Number(countEl.textContent) || 0 : null;
+          if (countEl) {
+            countEl.textContent = String(prevCount + 1);
+            bumpCount(countEl);
+          }
           try {
             await jsonFetch('/api/dislike', {
               method: 'POST',
@@ -815,6 +898,10 @@
               body: JSON.stringify({ cakeId: cake._id }),
             });
           } catch (err) {
+            if (countEl && prevCount !== null) {
+              countEl.textContent = String(prevCount);
+              bumpCount(countEl);
+            }
             console.warn(err);
           }
         });
