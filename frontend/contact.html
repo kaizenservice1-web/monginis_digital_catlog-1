@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Contact Monginis — address, phone, email, maps, and hours." />
-  <title>Contact — Monginis</title>
+  <meta name="description" content="Contact Monginis — The Celebration Bakers. View shop location on Beed Bypass CSN, call directly, send an email, or chat on WhatsApp." />
+  <title>Contact Us — Monginis (The Celebration Bakers)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -19,23 +19,23 @@
   </div>
 
   <header class="topbar">
-    <nav class="nav" aria-label="Primary">
+    <nav class="nav" aria-label="Primary Navigation">
       <a class="brand" href="index.html" aria-label="Monginis Home">
         <img class="brand-logo" src="assets/logo.png" alt="Monginis logo" loading="eager" onerror="this.onerror=null;this.src='assets/logo-placeholder.svg'" />
         <span class="brand-text">
           <span class="brand-name">Monginis</span>
-          <span class="brand-tag">Contact</span>
+          <span class="brand-tag">The Celebration Bakers</span>
         </span>
       </a>
-      <button class="icon-btn burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobileMenu">
+      <button class="icon-btn burger" type="button" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobileMenu">
         <i class="fa-solid fa-bars"></i>
       </button>
       <div class="nav-links" role="navigation" aria-label="Desktop">
-        <a class="nav-link" href="index.html">Home</a>
-        <a class="nav-link" href="catalog.html">Catalog</a>
-        <a class="nav-link" href="about.html">About</a>
-        <a class="nav-link active" href="contact.html">Contact</a>
-        <a class="nav-link admin" href="pages/admin-login.html" aria-label="Admin"><i class="fa-solid fa-user-shield"></i></a>
+        <a class="nav-link" href="index.html"><i class="fa-solid fa-house"></i> Home</a>
+        <a class="nav-link" href="catalog.html"><i class="fa-solid fa-cake-candles"></i> Catalog</a>
+        <a class="nav-link" href="about.html"><i class="fa-solid fa-circle-info"></i> About</a>
+        <a class="nav-link active" href="contact.html"><i class="fa-solid fa-phone"></i> Contact</a>
+        <a class="nav-link admin" href="pages/admin-login.html" aria-label="Admin Portal" title="Owner Login"><i class="fa-solid fa-user-shield"></i></a>
       </div>
     </nav>
     <div id="mobileMenu" class="mobile-menu" hidden>
@@ -43,52 +43,81 @@
       <a href="catalog.html"><i class="fa-solid fa-cake-candles"></i> Catalog</a>
       <a href="about.html"><i class="fa-solid fa-circle-info"></i> About</a>
       <a href="contact.html"><i class="fa-solid fa-phone"></i> Contact</a>
-      <a href="pages/admin-login.html"><i class="fa-solid fa-user-shield"></i> Admin</a>
+      <a href="pages/admin-login.html"><i class="fa-solid fa-user-shield"></i> Admin Portal</a>
     </div>
   </header>
 
   <main class="main">
     <section class="page-hero">
-      <h1 class="h1">Contact Monginis</h1>
-      <p class="sub">Shop info, hours, and directions—optimized for tap-to-call and tap-to-chat.</p>
-      <svg class="wave" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M0,55 C160,95 320,110 480,86 C640,62 800,12 960,22 C1120,32 1280,86 1440,64 L1440,120 L0,120 Z" fill="var(--cream)" opacity="0.9"></path>
-      </svg>
+      <h1 class="h1">Contact Our Bakery Shop</h1>
+      <p class="sub">We’re here to assist you with cake recommendations, custom themes, and celebratory orders. Tap to call, message, or visit us in store.</p>
     </section>
 
     <section class="section">
       <div class="grid two" id="contactGrid">
         <div class="panel">
-          <h2 class="h2">Shop Details</h2>
+          <span class="detail-kicker">Get In Touch</span>
+          <h2 class="h2" style="margin: 6px 0 16px;">Shop Information</h2>
           <div class="info-list">
-            <a class="info-item" id="contactPhone" href="tel:9613661155" data-contact-link="phone"><i class="fa-solid fa-phone"></i><span data-field="phone">9613661155</span></a>
-            <a class="info-item" id="contactEmail" href="mailto:kaizenservice1@gmail.com" data-contact-link="email"><i class="fa-solid fa-envelope"></i><span data-field="email">kaizenservice1@gmail.com</span></a>
-            <div class="info-item"><i class="fa-solid fa-location-dot"></i><span data-field="address">Loading…</span></div>
-            <div class="info-item"><i class="fa-solid fa-clock"></i><span data-field="openingHours">Loading…</span></div>
+            <a class="info-item" id="contactPhone" href="tel:9613661155" data-contact-link="phone">
+              <i class="fa-solid fa-phone"></i>
+              <div>
+                <div class="tiny muted" style="font-weight:800;text-transform:uppercase;">Phone Number</div>
+                <span data-field="phone">9613661155</span>
+              </div>
+            </a>
+            <a class="info-item" id="contactEmail" href="mailto:kaizenservice1@gmail.com" data-contact-link="email">
+              <i class="fa-solid fa-envelope"></i>
+              <div>
+                <div class="tiny muted" style="font-weight:800;text-transform:uppercase;">Email Address</div>
+                <span data-field="email">kaizenservice1@gmail.com</span>
+              </div>
+            </a>
+            <div class="info-item">
+              <i class="fa-solid fa-location-dot"></i>
+              <div>
+                <div class="tiny muted" style="font-weight:800;text-transform:uppercase;">Bakery Address</div>
+                <span data-field="address">Monginis Cake Shop, Beed Bypass, Near Nishant Park Hotel, CSN</span>
+              </div>
+            </div>
+            <div class="info-item">
+              <i class="fa-solid fa-clock"></i>
+              <div>
+                <div class="tiny muted" style="font-weight:800;text-transform:uppercase;">Operating Hours</div>
+                <span data-field="openingHours">Daily 10:00 AM – 9:00 PM</span>
+              </div>
+            </div>
           </div>
-          <a class="btn primary mt-14" id="contactMaps" href="https://maps.app.goo.gl/WbYHNrevSWsr88Fx5?g_st=ac" data-contact-link="maps" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-map-location-dot"></i> Open in Maps</a>
-          <div class="social-row" aria-label="Social links">
-            <a class="social-link" href="#" data-social="ig" aria-label="Instagram">
-              <span class="social-avatar"><img src="assets/logo.png" alt="Monginis logo" loading="lazy" /></span>
-              <span class="social-label"><i class="fa-brands fa-instagram"></i> Instagram</span>
+          
+          <div style="margin-top: 20px;">
+            <a class="btn primary" id="contactMaps" href="https://maps.app.goo.gl/WbYHNrevSWsr88Fx5?g_st=ac" data-contact-link="maps" target="_blank" rel="noopener noreferrer">
+              <i class="fa-solid fa-map-location-dot"></i> Open in Google Maps
             </a>
-            <a class="social-link" href="#" data-social="fb" aria-label="Facebook">
-              <span class="social-avatar"><img src="assets/logo.png" alt="Monginis logo" loading="lazy" /></span>
-              <span class="social-label"><i class="fa-brands fa-facebook"></i> Facebook</span>
-            </a>
-            <a class="social-link" href="#" data-social="wa" aria-label="WhatsApp">
-              <span class="social-avatar"><img src="assets/logo.png" alt="Monginis logo" loading="lazy" /></span>
-              <span class="social-label"><i class="fa-brands fa-whatsapp"></i> WhatsApp</span>
-            </a>
+          </div>
+
+          <div style="margin-top: 24px;">
+            <span class="tiny muted" style="font-weight:800;text-transform:uppercase;display:block;margin-bottom:10px;">Follow &amp; Connect</span>
+            <div class="footer-social" aria-label="Social links">
+              <a class="social-link small" href="#" data-social="ig" aria-label="Instagram">
+                <i class="fa-brands fa-instagram" style="color:#E1306C"></i> <span>Instagram</span>
+              </a>
+              <a class="social-link small" href="#" data-social="fb" aria-label="Facebook">
+                <i class="fa-brands fa-facebook" style="color:#1877F2"></i> <span>Facebook</span>
+              </a>
+              <a class="social-link small" href="#" data-social="wa" aria-label="WhatsApp">
+                <i class="fa-brands fa-whatsapp" style="color:#25D366"></i> <span>WhatsApp</span>
+              </a>
+            </div>
           </div>
         </div>
 
         <div class="panel">
-          <h2 class="h2">Map</h2>
+          <span class="detail-kicker">Interactive Directions</span>
+          <h2 class="h2" style="margin: 6px 0 16px;">Bakery Map Location</h2>
           <div class="map-wrap" id="mapWrap">
-            <div class="skeleton map-skel"></div>
+            <div class="skeleton map-skel skeleton-shimmer"></div>
           </div>
-          <p class="muted tiny">If the map doesn’t load on your device, open it in Google Maps.</p>
+          <p class="muted tiny" style="margin-top: 12px;">Need directions? Click the map or the button above to navigate via your device's navigation app.</p>
         </div>
       </div>
     </section>
@@ -98,48 +127,64 @@
         <div class="footer-brand">
           <img class="footer-logo" src="assets/logo.png" alt="Monginis logo" loading="lazy" onerror="this.onerror=null;this.src='assets/logo-placeholder.svg'" />
           <div>
-            <div class="footer-name">Monginis</div>
+            <div class="footer-name">Monginis — The Celebration Bakers</div>
             <div class="footer-tag">You Dream it, We Bake it</div>
           </div>
         </div>
-        <div class="footer-links">
+        <div class="footer-links" aria-label="Footer Navigation">
           <a href="index.html">Home</a>
           <a href="catalog.html">Catalog</a>
           <a href="about.html">About</a>
           <a href="contact.html">Contact</a>
-          <a href="pages/admin-login.html">Admin</a>
+          <a href="pages/admin-login.html">Admin Portal</a>
         </div>
 
-        <div class="footer-dev">
-          <div class="footer-title">Developer Contact</div>
-          <div class="footer-dev-name">Developer: Sarang Chavan</div>
-          <a class="footer-contact-link" href="https://www.linkedin.com/in/sarang-chavan-a9228a329" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-linkedin"></i><span>in/sarang-chavan-a9228a329</span></a>
-          <a class="footer-contact-link" href="mailto:sarangchvan06@gmail.com"><i class="fa-solid fa-envelope"></i><span>sarangchvan06@gmail.com</span></a>
-          <a class="footer-contact-link" href="tel:9075396183"><i class="fa-solid fa-phone"></i><span>9075396183</span></a>
+        <div class="developer-card">
+          <div class="section-head">
+            <h2 class="h2" style="font-size:18px;">Developer Information</h2>
+            <div class="muted tiny">Designed &amp; Developed with Care</div>
+          </div>
+          <div class="developer-grid">
+            <div class="developer-item">
+              <span class="developer-label"><i class="fa-solid fa-user-code"></i> Developer</span>
+              <span class="developer-value">Sarang Chavan</span>
+            </div>
+            <a class="developer-item" href="https://www.linkedin.com/in/sarang-chavan-a9228a329" target="_blank" rel="noopener noreferrer">
+              <span class="developer-label"><i class="fa-brands fa-linkedin"></i> LinkedIn</span>
+              <span class="developer-value">in/sarang-chavan-a9228a329</span>
+            </a>
+            <a class="developer-item" href="mailto:sarangchvan06@gmail.com">
+              <span class="developer-label"><i class="fa-solid fa-envelope"></i> Email</span>
+              <span class="developer-value">sarangchvan06@gmail.com</span>
+            </a>
+            <a class="developer-item" href="tel:9075396183">
+              <span class="developer-label"><i class="fa-solid fa-phone"></i> Mobile</span>
+              <span class="developer-value">+91 9075396183</span>
+            </a>
+          </div>
         </div>
+
         <div class="footer-meta">
-          <div class="muted" id="footerAddress">Loading shop info…</div>
-          <div class="muted">© Sarang Chavan</div>
+          <div class="muted" id="footerAddress">Beed Bypass, Near Nishant Park Hotel, CSN</div>
+          <div class="muted">© <span class="year-now"></span> Sarang Chavan. All rights reserved.</div>
         </div>
-        <div class="footer-social" aria-label="Social links">
+
+        <div class="footer-social" aria-label="Social media channels">
           <a class="social-link small" href="#" data-social="ig" aria-label="Instagram">
-            <span class="social-avatar"><img src="assets/logo.png" alt="Monginis logo" loading="lazy" /></span>
-            <span class="social-label"><i class="fa-brands fa-instagram"></i> Instagram</span>
+            <i class="fa-brands fa-instagram" style="color:#E1306C"></i> <span>Instagram</span>
           </a>
           <a class="social-link small" href="#" data-social="fb" aria-label="Facebook">
-            <span class="social-avatar"><img src="assets/logo.png" alt="Monginis logo" loading="lazy" /></span>
-            <span class="social-label"><i class="fa-brands fa-facebook"></i> Facebook</span>
+            <i class="fa-brands fa-facebook" style="color:#1877F2"></i> <span>Facebook</span>
           </a>
           <a class="social-link small" href="#" data-social="wa" aria-label="WhatsApp">
-            <span class="social-avatar"><img src="assets/logo.png" alt="Monginis logo" loading="lazy" /></span>
-            <span class="social-label"><i class="fa-brands fa-whatsapp"></i> WhatsApp</span>
+            <i class="fa-brands fa-whatsapp" style="color:#25D366"></i> <span>WhatsApp</span>
           </a>
         </div>
       </div>
     </footer>
   </main>
 
-  <nav class="bottom-nav" aria-label="Bottom navigation">
+  <nav class="bottom-nav" aria-label="Mobile Bottom Navigation">
     <a class="bn" href="index.html" data-nav="home"><i class="fa-solid fa-house"></i><span>Home</span></a>
     <a class="bn" href="catalog.html" data-nav="catalog"><i class="fa-solid fa-cake-candles"></i><span>Catalog</span></a>
     <a class="bn" href="about.html" data-nav="about"><i class="fa-solid fa-circle-info"></i><span>About</span></a>
@@ -147,7 +192,7 @@
     <a class="bn" href="pages/admin-login.html" data-nav="admin"><i class="fa-solid fa-user-shield"></i><span>Admin</span></a>
   </nav>
 
-  <a class="whatsapp-float" href="#" id="waFloat" aria-label="WhatsApp inquiry">
+  <a class="whatsapp-float" href="#" id="waFloat" aria-label="Send WhatsApp Inquiry" title="Chat on WhatsApp">
     <i class="fa-brands fa-whatsapp"></i>
   </a>
 

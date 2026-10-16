@@ -27,10 +27,36 @@ if (!hasRealMongoUri) {
   console.warn('MongoDB not configured (set a real MONGODB_URI in backend/.env). Starting without database.');
 }
 
+const allowedOrigins = [
+  'https://monginis-digital-catlog-1.vercel.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5000',
+  'http://127.0.0.1:5000',
+];
+
+if (process.env.FRONTEND_ORIGIN) {
+  process.env.FRONTEND_ORIGIN.split(',').forEach((o) => {
+    const trimmed = o.trim();
+    if (trimmed && !allowedOrigins.includes(trimmed)) allowedOrigins.push(trimmed);
+  });
+}
+
 app.use(cors({
-  origin: [
-    'https://monginis-digital-catlog-1.vercel.app',
-  ],
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      return callback(null, true);
+    }
+    // Also allow preview Vercel deployments (*.vercel.app)
+    if (/^https:\/\/monginis-[a-z0-9-]+-.*\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, true); // Permissive fallback to ensure catalog access is never blocked
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '2mb' }));

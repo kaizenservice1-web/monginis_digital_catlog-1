@@ -1,14 +1,36 @@
-/* Monginis Catalog — vanilla JS */
+/* ==========================================================================
+   Monginis Digital Catalog — Vanilla JS Core Application
+   ========================================================================== */
 (() => {
-  const API_BASE_URL = 'https://monginis-digital-catlog-1.onrender.com';
+  'use strict';
 
+  // API Base URL - Default to production Render deployment
+  const DEFAULT_API_URL = 'https://monginis-digital-catlog-1.onrender.com';
+  
+  // Dynamic API URL with local fallback capability
+  const getApiBaseUrl = () => {
+    if (window.API_BASE_URL) return window.API_BASE_URL;
+    return DEFAULT_API_URL;
+  };
+
+  const API_BASE_URL = getApiBaseUrl();
+
+  // DOM Query Helpers
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+  // Global State
   const state = {
     shopInfo: null,
     categories: [],
     adminCakes: [],
+    catalogPage: 1,
+    catalogLimit: 12,
+    catalogTotalPages: 1,
+    catalogCategory: 'all',
+    catalogSearch: '',
+    catalogLoading: false,
+    activeCatalogController: null,
   };
 
   const DEFAULT_SHOP_INFO = {
@@ -24,19 +46,61 @@
     googleReviewsUrl: '',
   };
 
+  // Utilities
+  const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  }[c]));
+  
+  const escapeAttr = (s) => escapeHtml(s);
+
+  const slugifyStr = (str) => String(str || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'cake';
+
+  const safeUrl = (maybeUrl) => {
+    if (!maybeUrl || typeof maybeUrl !== 'string') return null;
+    try {
+      const url = new URL(maybeUrl);
+      return url.toString();
+    } catch {
+      return null;
+    }
+  };
+
+  // Cloudinary image transformation optimizer
+  const optimizeCloudinaryUrl = (url, opts = {}) => {
+    if (!url || typeof url !== 'string') return url;
+    if (!url.includes('res.cloudinary.com') || !url.includes('/image/upload/')) {
+      return url;
+    }
+    const width = opts.width || 600;
+    const crop = opts.crop || 'limit';
+    // Insert auto-format, auto-quality, and responsive width
+    const transform = `f_auto,q_auto,w_${width},c_${crop}`;
+    return url.replace('/image/upload/', `/image/upload/${transform}/`);
+  };
+
+  // Network Fetch Wrapper with Signal & Error Handling
   const jsonFetch = async (path, opts = {}) => {
-    const url = `${API_BASE_URL}${path}`;
+    const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
     let res;
     try {
       res = await fetch(url, {
         ...opts,
         credentials: 'include',
         headers: {
+          'Accept': 'application/json',
           ...(opts.headers || {}),
         },
       });
     } catch (err) {
-      throw new Error(`Network error while calling ${path}. Check backend deployment and CORS.`);
+      if (err.name === 'AbortError') {
+        throw err;
+      }
+      throw new Error(`Network error while calling ${path}. Please check your connection.`);
     }
 
     const contentType = res.headers.get('content-type') || '';
@@ -61,8 +125,9 @@
   };
 
   const setYear = () => {
-    const el = $('#year');
-    if (el) el.textContent = new Date().getFullYear();
+    $$('#year, .year-now').forEach(el => {
+      el.textContent = new Date().getFullYear();
+    });
   };
 
   const setBottomNavActive = () => {
@@ -73,8 +138,8 @@
       contact: 'contact',
       about: 'about',
       details: 'catalog',
-      'admin-login': null,
-      'admin-dashboard': null,
+      'admin-login': 'admin',
+      'admin-dashboard': 'admin',
     };
     const active = map[page] ?? null;
     if (!active) return;
@@ -83,53 +148,40 @@
     });
   };
 
+  // Mobile Navigation Drawer
   const initBurgerMenu = () => {
     const btn = $('.burger');
     const menu = $('#mobileMenu');
     if (!btn || !menu) return;
 
-    const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+    const isMobile = () => window.matchMedia('(max-width: 980px)').matches;
 
     const openMenu = () => {
       menu.hidden = false;
-      if (isMobile()) {
-        requestAnimationFrame(() => {
-          menu.classList.add('is-open');
-        });
-      } else {
+      requestAnimationFrame(() => {
         menu.classList.add('is-open');
-      }
-      btn.setAttribute('aria-expanded', 'true');
+        btn.setAttribute('aria-expanded', 'true');
+        btn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      });
     };
 
     const closeMenu = () => {
       menu.classList.remove('is-open');
       btn.setAttribute('aria-expanded', 'false');
-
-      if (!isMobile()) {
-        menu.hidden = true;
-        return;
-      }
+      btn.innerHTML = '<i class="fa-solid fa-bars"></i>';
 
       const onEnd = () => {
-        menu.hidden = true;
+        if (!menu.classList.contains('is-open')) menu.hidden = true;
       };
-
       menu.addEventListener('transitionend', onEnd, { once: true });
-      setTimeout(() => {
-        if (!menu.hidden && !menu.classList.contains('is-open')) {
-          menu.hidden = true;
-        }
-      }, 350);
+      setTimeout(onEnd, 320);
     };
 
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const open = menu.hidden || !menu.classList.contains('is-open');
-      if (open) {
-        openMenu();
-      } else {
-        closeMenu();
-      }
+      if (open) openMenu();
+      else closeMenu();
     });
 
     document.addEventListener('click', (e) => {
@@ -141,20 +193,8 @@
     });
   };
 
-  const safeUrl = (maybeUrl) => {
-    if (!maybeUrl || typeof maybeUrl !== 'string') return null;
-    try {
-      const url = new URL(maybeUrl);
-      return url.toString();
-    } catch {
-      return null;
-    }
-  };
-
   const getCakePrimaryImageUrl = (cake) => {
     if (!cake) return null;
-
-    // New schema: images: [{ url, publicId, ... }]
     const first = Array.isArray(cake.images) ? cake.images[0] : null;
     if (first) {
       if (typeof first === 'string') return safeUrl(first);
@@ -162,8 +202,6 @@
         return safeUrl(first.url) || safeUrl(first.secure_url) || safeUrl(first.secureUrl);
       }
     }
-
-    // Legacy schema: imageUrl
     return safeUrl(cake.imageUrl) || safeUrl(cake.thumbnailUrl) || safeUrl(cake.image);
   };
 
@@ -171,13 +209,12 @@
     if (Array.isArray(data)) {
       return { items: data, page: 1, limit: data.length, total: data.length, totalPages: 1 };
     }
-    return data || { items: [], page: 1, limit: 0, total: 0, totalPages: 1 };
+    return data || { items: [], page: 1, limit: 12, total: 0, totalPages: 1 };
   };
 
   const matchCategorySlug = (value) => {
     const raw = String(value || '').trim();
-    if (!raw) return 'all';
-    if (raw.toLowerCase() === 'all') return 'all';
+    if (!raw || raw.toLowerCase() === 'all') return 'all';
     const direct = state.categories.find((c) => c.slug === raw);
     if (direct) return direct.slug;
     const byName = state.categories.find((c) => c.name.toLowerCase() === raw.toLowerCase());
@@ -186,7 +223,7 @@
 
   const compressImageFile = (file, opts = {}) => new Promise((resolve) => {
     const maxSize = Number(opts.maxSize || 1600);
-    const quality = Number(opts.quality || 0.8);
+    const quality = Number(opts.quality || 0.82);
     const img = new Image();
     const url = URL.createObjectURL(file);
 
@@ -198,6 +235,7 @@
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
+
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         URL.revokeObjectURL(url);
@@ -228,37 +266,15 @@
 
   const getShopLink = (info, type) => {
     if (!info) return '#';
-    if (type === 'phone') return `tel:${String(info.phone || '').replace(/\s+/g, '')}`;
-    if (type === 'email') return `mailto:${String(info.email || '')}`;
-    if (type === 'maps') return safeUrl(info.googleMapsUrl) || safeUrl(info.googleMapsEmbedUrl) || '#';
+    if (type === 'phone') return `tel:${String(info.phone || DEFAULT_SHOP_INFO.phone).replace(/\s+/g, '')}`;
+    if (type === 'email') return `mailto:${String(info.email || DEFAULT_SHOP_INFO.email)}`;
+    if (type === 'maps') return safeUrl(info.googleMapsUrl) || safeUrl(info.googleMapsEmbedUrl) || DEFAULT_SHOP_INFO.googleMapsUrl;
     return '#';
   };
 
-  const renderFooterContacts = (info) => {
-    $$('.footer-meta').forEach((meta) => {
-      let strip = meta.querySelector('.footer-contact');
-      if (!strip) {
-        strip = document.createElement('div');
-        strip.className = 'footer-contact';
-        meta.prepend(strip);
-      }
-
-      strip.innerHTML = `
-        <a class="footer-contact-link" href="${escapeAttr(getShopLink(info, 'phone'))}"><i class="fa-solid fa-phone"></i><span>${escapeHtml(info.phone || DEFAULT_SHOP_INFO.phone)}</span></a>
-        <a class="footer-contact-link" href="${escapeAttr(getShopLink(info, 'email'))}"><i class="fa-solid fa-envelope"></i><span>${escapeHtml(info.email || DEFAULT_SHOP_INFO.email)}</span></a>
-        <a class="footer-contact-link" href="${escapeAttr(getShopLink(info, 'maps'))}" target="_blank" rel="noreferrer"><i class="fa-solid fa-map-location-dot"></i><span>Open in Maps</span></a>
-      `;
-    });
-  };
-
-  const normalizeShopInfo = (info) => ({
-    ...DEFAULT_SHOP_INFO,
-    ...(info || {}),
-  });
-
   const makeWhatsAppLink = ({ whatsappNumber, message }) => {
-    const digits = String(whatsappNumber || '').replace(/\D/g, '');
-    const base = digits ? `https://wa.me/${digits}` : 'https://wa.me/';
+    const digits = String(whatsappNumber || DEFAULT_SHOP_INFO.whatsappNumber).replace(/\D/g, '');
+    const base = digits ? `https://wa.me/${digits}` : 'https://wa.me/919613661155';
     const text = message ? `?text=${encodeURIComponent(message)}` : '';
     return `${base}${text}`;
   };
@@ -266,11 +282,11 @@
   const loadShopInfo = async () => {
     if (state.shopInfo) return state.shopInfo;
     try {
-      const info = normalizeShopInfo(await jsonFetch('/api/shop-info'));
-      state.shopInfo = info;
-      return info;
+      const info = await jsonFetch('/api/shop-info');
+      state.shopInfo = { ...DEFAULT_SHOP_INFO, ...(info || {}) };
+      return state.shopInfo;
     } catch {
-      state.shopInfo = normalizeShopInfo();
+      state.shopInfo = { ...DEFAULT_SHOP_INFO };
       return state.shopInfo;
     }
   };
@@ -279,129 +295,146 @@
     const info = await loadShopInfo();
 
     const footerAddr = $('#footerAddress');
-    if (footerAddr) footerAddr.textContent = info.address || 'Monginis';
+    if (footerAddr) footerAddr.textContent = info.address || DEFAULT_SHOP_INFO.address;
 
-    renderFooterContacts(info);
-
-    // Quick contact (home)
-    const phoneEls = $$('[data-field="phone"]');
-    phoneEls.forEach(el => el.textContent = info.phone || DEFAULT_SHOP_INFO.phone);
-
-    const emailEls = $$('[data-field="email"]');
-    emailEls.forEach(el => el.textContent = info.email || DEFAULT_SHOP_INFO.email);
-
-    const addrEls = $$('[data-field="address"]');
-    addrEls.forEach(el => el.textContent = info.address || 'Monginis');
-
-    const hoursEls = $$('[data-field="openingHours"]');
-    hoursEls.forEach(el => el.textContent = info.openingHours || 'Daily');
+    $$('[data-field="phone"]').forEach(el => el.textContent = info.phone || DEFAULT_SHOP_INFO.phone);
+    $$('[data-field="email"]').forEach(el => el.textContent = info.email || DEFAULT_SHOP_INFO.email);
+    $$('[data-field="address"]').forEach(el => el.textContent = info.address || DEFAULT_SHOP_INFO.address);
+    $$('[data-field="openingHours"]').forEach(el => el.textContent = info.openingHours || DEFAULT_SHOP_INFO.openingHours);
 
     const phoneA = $('#contactPhone') || $('#quickPhone');
-    if (phoneA && info.phone) {
-      const tel = `tel:${String(info.phone).replace(/\s+/g, '')}`;
-      phoneA.setAttribute('href', tel);
-    }
+    if (phoneA) phoneA.setAttribute('href', getShopLink(info, 'phone'));
 
     const emailA = $('#contactEmail') || $('#quickEmail');
-    if (emailA && info.email) emailA.setAttribute('href', `mailto:${info.email}`);
-
-    const quickLocation = $('#quickLocation');
-    if (quickLocation) quickLocation.setAttribute('href', getShopLink(info, 'maps'));
+    if (emailA) emailA.setAttribute('href', getShopLink(info, 'email'));
 
     const contactMaps = $('#contactMaps');
-    if (contactMaps) {
-      contactMaps.setAttribute('href', getShopLink(info, 'maps'));
-      contactMaps.setAttribute('target', '_blank');
-      contactMaps.setAttribute('rel', 'noreferrer');
-    }
+    if (contactMaps) contactMaps.setAttribute('href', getShopLink(info, 'maps'));
 
-    const igLinks = $$('[data-social="ig"]');
-    igLinks.forEach(el => el.setAttribute('href', safeUrl(info.instagramUrl) || '#'));
-
-    const fbLinks = $$('[data-social="fb"]');
-    fbLinks.forEach(el => el.setAttribute('href', safeUrl(info.facebookUrl) || '#'));
-
-    const waLinks = $$('[data-social="wa"]');
-    waLinks.forEach(el => el.setAttribute('href', makeWhatsAppLink({ whatsappNumber: info.whatsappNumber, message: 'Hi Monginis! I want to inquire about a cake.' })));
-
-    const socialLinks = $$('[data-social]');
-    socialLinks.forEach(el => {
-      el.setAttribute('target', '_blank');
-      el.setAttribute('rel', 'noopener noreferrer');
-    });
-
-    const reviewLinks = $$('[data-review="google"]');
-    reviewLinks.forEach(el => {
-      el.setAttribute('href', safeUrl(info.googleReviewsUrl) || '#');
-      el.setAttribute('target', '_blank');
-      el.setAttribute('rel', 'noopener noreferrer');
-    });
-
-    const emailLinks = $$('[data-contact-link="email"]');
-    emailLinks.forEach(el => el.setAttribute('href', `mailto:${info.email || DEFAULT_SHOP_INFO.email}`));
-
-    const phoneLinks = $$('[data-contact-link="phone"]');
-    phoneLinks.forEach(el => el.setAttribute('href', `tel:${String(info.phone || DEFAULT_SHOP_INFO.phone).replace(/\s+/g, '')}`));
-
-    const mapsLinks = $$('[data-contact-link="maps"]');
-    mapsLinks.forEach(el => el.setAttribute('href', getShopLink(info, 'maps')));
+    $$('[data-social="ig"]').forEach(el => el.setAttribute('href', safeUrl(info.instagramUrl) || '#'));
+    $$('[data-social="fb"]').forEach(el => el.setAttribute('href', safeUrl(info.facebookUrl) || '#'));
+    $$('[data-social="wa"]').forEach(el => el.setAttribute('href', makeWhatsAppLink({ whatsappNumber: info.whatsappNumber, message: 'Hello Monginis! I would like to inquire about your cakes.' })));
 
     const waFloat = $('#waFloat');
-    if (waFloat) waFloat.setAttribute('href', makeWhatsAppLink({ whatsappNumber: info.whatsappNumber, message: 'Hi Monginis! I want to inquire about a cake.' }));
+    if (waFloat) {
+      waFloat.setAttribute('href', makeWhatsAppLink({ whatsappNumber: info.whatsappNumber, message: 'Hello Monginis! I would like to inquire about your cakes.' }));
+      waFloat.setAttribute('target', '_blank');
+      waFloat.setAttribute('rel', 'noopener noreferrer');
+    }
   };
 
+  // ==========================================================================
+  // Phase Three: Cake Card Component (9:16 Portrait Image Container)
+  // ==========================================================================
   const cakeCard = (cake) => {
     const img = getCakePrimaryImageUrl(cake);
+    const optimizedImg = optimizeCloudinaryUrl(img, { width: 600, height: 1067, crop: 'limit' });
     const title = cake.name || 'Cake';
     const desc = cake.description || '';
+    const category = cake.categoryName || (typeof cake.category === 'object' ? cake.category?.name : '') || '';
+    const cakeId = String(cake._id || '');
 
-    const el = document.createElement('div');
+    const el = document.createElement('article');
     el.className = 'cake-card';
-    el.setAttribute('data-cake-id', String(cake._id || ''));
+    el.setAttribute('data-cake-id', cakeId);
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('role', 'article');
+    el.setAttribute('aria-label', title);
+
     el.innerHTML = `
-      ${img ? `<img src="${escapeAttr(img)}" alt="${escapeAttr(title)}" loading="lazy" />` : `<div class="cake-image" aria-hidden="true"></div>`}
-      <div class="cake-info">
-        <h3>${escapeHtml(title)}</h3>
-        <p>${escapeHtml(desc || ' ')}</p>
-        <div class="actions">
-          <button class="reaction-btn like-btn" type="button" aria-label="Like" aria-pressed="false">
+      <div class="cake-card__image">
+        ${category ? `<span class="cake-card__badge">${escapeHtml(category)}</span>` : ''}
+        ${img ? `
+          <img src="${escapeAttr(optimizedImg)}" alt="${escapeAttr(title)}" loading="lazy" decoding="async" onload="this.classList.add('image-loaded')" onerror="this.onerror=null;this.style.opacity='1';this.parentElement.innerHTML='<div class=\\'empty\\'><i class=\\'fa-solid fa-cake-candles icon-pink\\'></i></div>';" />
+        ` : `
+          <div class="empty" style="border:none;box-shadow:none;background:transparent;height:100%;justify-content:center;" aria-hidden="true">
+            <i class="fa-solid fa-cake-candles icon-pink" style="font-size:32px;"></i>
+          </div>
+        `}
+      </div>
+      <div class="cake-card__content">
+        <h3 class="cake-card__title">${escapeHtml(title)}</h3>
+        ${desc ? `<p class="cake-card__desc">${escapeHtml(desc)}</p>` : `<p class="cake-card__desc muted tiny">Freshly baked Monginis celebration design</p>`}
+        <div class="cake-card__actions">
+          <button class="reaction-btn like-btn" type="button" aria-label="Like ${escapeAttr(title)}" aria-pressed="false">
             <i class="fa-regular fa-heart"></i>
             <span class="count" data-count-like>${Number(cake.likes) || 0}</span>
           </button>
-          <button class="reaction-btn dislike-btn" type="button" aria-label="Dislike" aria-pressed="false">
+          <button class="reaction-btn dislike-btn" type="button" aria-label="Dislike ${escapeAttr(title)}" aria-pressed="false">
             <i class="fa-regular fa-thumbs-down"></i>
             <span class="count" data-count-dislike>${Number(cake.dislikes) || 0}</span>
           </button>
+          ${img ? `
+            <a class="card-action-icon download-btn" href="${escapeAttr(img)}" download="${escapeAttr(slugifyStr(title))}.jpg" target="_blank" rel="noopener noreferrer" aria-label="Download image of ${escapeAttr(title)}" title="Download cake image">
+              <i class="fa-solid fa-download"></i>
+            </a>
+          ` : ''}
+          <span class="cake-card__detail-link" aria-hidden="true">Details <i class="fa-solid fa-arrow-right"></i></span>
         </div>
       </div>
     `;
 
-    // Click card to open details (but don't hijack like/dislike clicks)
+    // Navigate to details on click or Enter/Space key, preserving buttons
+    const navigateToDetails = () => {
+      if (cakeId) {
+        location.href = `cake-details.html?id=${encodeURIComponent(cakeId)}`;
+      }
+    };
+
     el.addEventListener('click', (e) => {
       const target = e.target;
       if (!(target instanceof Element)) return;
-      if (target.closest('.actions')) return;
-      if (cake?._id) {
-        location.href = `cake-details.html?id=${encodeURIComponent(cake._id)}`;
+      if (target.closest('.cake-card__actions') || target.closest('button') || target.closest('a')) {
+        return;
+      }
+      navigateToDetails();
+    });
+
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const target = e.target;
+        if (target === el) {
+          e.preventDefault();
+          navigateToDetails();
+        }
       }
     });
+
     return el;
   };
 
-  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  const escapeAttr = (s) => escapeHtml(s);
+  // ==========================================================================
+  // Phase Four: Skeleton Loaders (9:16 Portrait Image Container)
+  // ==========================================================================
+  const renderSkeletonGrid = (grid, count = 12) => {
+    if (!grid) return;
+    const cards = [];
+    for (let i = 0; i < count; i += 1) {
+      cards.push(`
+        <div class="cake-card skeleton-card" aria-hidden="true">
+          <div class="cake-card__image skeleton-shimmer"></div>
+          <div class="cake-card__content">
+            <div class="skeleton-pill skeleton-shimmer"></div>
+            <div class="skeleton-title skeleton-shimmer"></div>
+            <div class="skeleton-sub skeleton-shimmer"></div>
+            <div class="cake-card__actions">
+              <div class="skeleton-btn skeleton-shimmer"></div>
+              <div class="skeleton-btn skeleton-shimmer"></div>
+              <div class="skeleton-btn round skeleton-shimmer"></div>
+            </div>
+          </div>
+        </div>
+      `);
+    }
+    grid.innerHTML = cards.join('');
+  };
 
-  const getCountEl = (wrap, type) => (
-    wrap?.querySelector(`[data-count-${type}]`) ||
-    wrap?.querySelector(`[data-${type}-count]`)
-  );
-
+  // Reaction Reactions Animation and Delegation
   const bumpCount = (el) => {
     if (!el) return;
     el.classList.remove('count-bump');
     void el.offsetWidth;
     el.classList.add('count-bump');
-    el.addEventListener('animationend', () => el.classList.remove('count-bump'), { once: true });
   };
 
   const triggerPulse = (btn) => {
@@ -409,7 +442,6 @@
     btn.classList.remove('is-pulse');
     void btn.offsetWidth;
     btn.classList.add('is-pulse');
-    btn.addEventListener('animationend', () => btn.classList.remove('is-pulse'), { once: true });
   };
 
   const setReactionActive = (wrap, activeType) => {
@@ -440,10 +472,13 @@
       const dislikeBtn = target.closest('button.dislike-btn');
       if (!likeBtn && !dislikeBtn) return;
 
+      e.stopPropagation();
+
       const action = likeBtn ? 'like' : 'dislike';
       setReactionActive(card, action);
       triggerPulse(likeBtn || dislikeBtn);
-      const countEl = getCountEl(card, action);
+
+      const countEl = card.querySelector(`[data-count-${action}]`);
       const prevCount = countEl ? Number(countEl.textContent) || 0 : null;
       if (countEl) {
         countEl.textContent = String(prevCount + 1);
@@ -451,27 +486,16 @@
       }
 
       try {
-        if (likeBtn) {
-          await jsonFetch('/api/like', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cakeId }),
-          });
-        }
-
-        if (dislikeBtn) {
-          await jsonFetch('/api/dislike', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cakeId }),
-          });
-        }
+        await jsonFetch(`/api/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cakeId }),
+        });
       } catch (err) {
         if (countEl && prevCount !== null) {
           countEl.textContent = String(prevCount);
-          bumpCount(countEl);
         }
-        console.warn(err);
+        console.warn(`Could not save ${action}:`, err.message);
       }
     });
   };
@@ -488,6 +512,9 @@
     }
   };
 
+  // ==========================================================================
+  // Page Initializer: Home
+  // ==========================================================================
   const initHome = async () => {
     await applyShopInfoToCommonUI();
 
@@ -497,10 +524,7 @@
     const homeCats = await loadCategories();
 
     if (homeList) {
-      homeList.innerHTML = '';
-      const optAll = document.createElement('option');
-      optAll.value = 'All';
-      homeList.appendChild(optAll);
+      homeList.innerHTML = '<option value="All">All Categories</option>';
       homeCats.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = cat.name;
@@ -508,77 +532,57 @@
       });
     }
 
-    const loadFeatured = async (categorySlug) => {
-      const query = categorySlug && categorySlug !== 'all'
-        ? `?category=${encodeURIComponent(categorySlug)}&limit=12`
-        : '?limit=12';
-      const cakes = await jsonFetch(`/api/cakes${query}`);
-      return Array.isArray(cakes) ? cakes : [];
-    };
-
-    // Featured
     const slider = $('#featuredSlider');
-    const skel = $('#featuredSkeleton');
-    if (slider) {
-      try {
-        const cakes = await loadFeatured('all');
-        slider.innerHTML = '';
-        (cakes || []).slice(0, 10).forEach(c => {
-          const el = cakeCard(c);
-          el.style.minWidth = '260px';
-          el.style.scrollSnapAlign = 'start';
-          slider.appendChild(el);
-        });
-        wireCakeActionDelegation(slider);
-      } catch {
-        if (skel) skel.style.display = 'none';
-      }
-    }
+    const lovedRoot = $('#homeLoved');
+    const catsRoot = $('#homeCategories');
 
-    if (homeInput) {
-      homeInput.addEventListener('change', async () => {
-        const slug = matchCategorySlug(homeInput.value);
+    // Wire up delegation
+    if (slider) wireCakeActionDelegation(slider);
+    if (lovedRoot) wireCakeActionDelegation(lovedRoot);
+
+    const loadFeatured = async (categorySlug) => {
+      if (slider) renderSkeletonGrid(slider, 6);
+      try {
+        const query = categorySlug && categorySlug !== 'all'
+          ? `?category=${encodeURIComponent(categorySlug)}&limit=10`
+          : '?limit=10';
+        const cakes = await jsonFetch(`/api/cakes${query}`);
         if (!slider) return;
         slider.innerHTML = '';
-        const cakes = await loadFeatured(slug);
-        (cakes || []).slice(0, 10).forEach(c => {
-          const el = cakeCard(c);
-          el.style.minWidth = '260px';
-          el.style.scrollSnapAlign = 'start';
-          slider.appendChild(el);
-        });
-        wireCakeActionDelegation(slider);
+        const list = Array.isArray(cakes) ? cakes : (cakes.items || []);
+        if (!list.length) {
+          slider.innerHTML = '<div class="empty" style="grid-column:1/-1"><p class="muted">No cakes found in this category.</p></div>';
+          return;
+        }
+        list.forEach(c => slider.appendChild(cakeCard(c)));
+      } catch (err) {
+        if (slider) slider.innerHTML = '<div class="empty" style="grid-column:1/-1"><p class="muted">Could not load cakes.</p></div>';
+      }
+    };
+
+    // Load initial featured
+    await loadFeatured('all');
+
+    if (homeInput) {
+      homeInput.addEventListener('change', () => {
+        const slug = matchCategorySlug(homeInput.value);
+        loadFeatured(slug);
       });
     }
 
     if (homeClear) {
-      homeClear.addEventListener('click', async () => {
+      homeClear.addEventListener('click', () => {
         if (homeInput) homeInput.value = '';
-        if (!slider) return;
-        slider.innerHTML = '';
-        const cakes = await loadFeatured('all');
-        (cakes || []).slice(0, 10).forEach(c => {
-          const el = cakeCard(c);
-          el.style.minWidth = '260px';
-          el.style.scrollSnapAlign = 'start';
-          slider.appendChild(el);
-        });
-        wireCakeActionDelegation(slider);
+        loadFeatured('all');
       });
     }
 
-    // Categories preview
-    const catsRoot = $('#homeCategories');
+    // Render Categories Preview
     if (catsRoot) {
       catsRoot.innerHTML = '';
       const top = homeCats.slice(0, 6);
       if (!top.length) {
-        catsRoot.innerHTML = `
-          <div class="chip-tile" style="grid-column:1/-1">
-            <span>Categories will appear here</span>
-            <i class="fa-solid fa-sparkles" style="color:var(--pink)"></i>
-          </div>
-        `;
+        catsRoot.innerHTML = `<div class="chip-tile" style="grid-column:1/-1"><span>Categories will appear here</span></div>`;
       } else {
         top.forEach(cat => {
           const a = document.createElement('a');
@@ -590,20 +594,23 @@
       }
     }
 
-    // Most loved
-    const lovedRoot = $('#homeLoved');
+    // Render Most Loved
     if (lovedRoot) {
+      renderSkeletonGrid(lovedRoot, 4);
       try {
-        const cakes = await jsonFetch('/api/cakes?sort=mostLoved&limit=6');
+        const cakes = await jsonFetch('/api/cakes?sort=mostLoved&limit=4');
         lovedRoot.innerHTML = '';
-        (cakes || []).slice(0, 6).forEach(c => lovedRoot.appendChild(cakeCard(c)));
-        wireCakeActionDelegation(lovedRoot);
+        const list = Array.isArray(cakes) ? cakes : (cakes.items || []);
+        list.forEach(c => lovedRoot.appendChild(cakeCard(c)));
       } catch {
-        lovedRoot.innerHTML = '';
+        lovedRoot.innerHTML = '<div class="empty" style="grid-column:1/-1"><p class="muted">Could not load most loved cakes.</p></div>';
       }
     }
   };
 
+  // ==========================================================================
+  // Page Initializer: Catalog with 4-Col Grid, Skeletons, AbortController
+  // ==========================================================================
   const initCatalog = async () => {
     await applyShopInfoToCommonUI();
 
@@ -617,55 +624,115 @@
     const prevBtn = $('#catalogPrev');
     const nextBtn = $('#catalogNext');
     const pageInfo = $('#catalogPageInfo');
+
     if (!grid) return;
 
     wireCakeActionDelegation(grid);
 
     const url = new URL(location.href);
-    const initialCategory = url.searchParams.get('category');
+    const initialCategory = url.searchParams.get('category') || 'all';
 
     const setActiveChip = (slug) => {
       if (!chips) return;
-      $$('.chip', chips).forEach(b => b.classList.toggle('active', b.dataset.category === slug));
+      $$('.chip', chips).forEach(b => {
+        b.classList.toggle('active', b.dataset.category === slug);
+      });
     };
 
     const renderCakes = (cakes) => {
       grid.innerHTML = '';
       const items = Array.isArray(cakes) ? cakes : [];
       if (!items.length) {
-        if (empty) empty.hidden = false;
+        if (empty) {
+          empty.hidden = false;
+          empty.innerHTML = `
+            <i class="fa-solid fa-cake-candles empty-icon"></i>
+            <h2 class="h2">No cakes found</h2>
+            <p class="muted">No designs available in this category. Explore other categories or reset filters.</p>
+            <button class="btn primary btn-sm mt-14" type="button" id="emptyResetBtn"><i class="fa-solid fa-rotate"></i> Show All Cakes</button>
+          `;
+          const rBtn = $('#emptyResetBtn', empty);
+          if (rBtn) {
+            rBtn.addEventListener('click', () => {
+              if (catInput) catInput.value = '';
+              setActiveChip('all');
+              loadCatalogPage('all', 1);
+            });
+          }
+        }
         if (pagination) pagination.hidden = true;
         return;
       }
+
       if (empty) empty.hidden = true;
       items.forEach(c => grid.appendChild(cakeCard(c)));
     };
 
-    const updatePagination = (page, totalPages, limit) => {
+    const updatePagination = (page, totalPages, limit, total) => {
       if (!pagination || !pageInfo || !prevBtn || !nextBtn) return;
       pagination.hidden = totalPages <= 1;
-      const perPage = Number(limit || 12);
-      pageInfo.textContent = `Page ${page} of ${totalPages} • ${perPage} per page`;
+      state.catalogPage = page;
+      state.catalogTotalPages = totalPages;
+      const totalCount = total ? ` (${total} cakes)` : '';
+      pageInfo.textContent = `Page ${page} of ${totalPages}${totalCount}`;
       prevBtn.disabled = page <= 1;
       nextBtn.disabled = page >= totalPages;
     };
 
-    const loadCakes = async (categorySlug, page) => {
-      const query = new URLSearchParams();
-      if (categorySlug && categorySlug !== 'all') query.set('category', categorySlug);
-      query.set('page', String(page));
-      query.set('limit', '12');
-      const out = normalizePaged(await jsonFetch(`/api/cakes?${query.toString()}`));
-      renderCakes(out.items || []);
-      updatePagination(out.page || 1, out.totalPages || 1, out.limit || 12);
-      return out;
+    const loadCatalogPage = async (categorySlug, page = 1) => {
+      // Cancel any ongoing search/pagination request
+      if (state.activeCatalogController) {
+        state.activeCatalogController.abort();
+      }
+      state.activeCatalogController = new AbortController();
+      const signal = state.activeCatalogController.signal;
+
+      state.catalogLoading = true;
+      state.catalogCategory = categorySlug || 'all';
+      state.catalogPage = page;
+
+      // Show 12 skeleton cards matching the 4-column 9:16 layout
+      renderSkeletonGrid(grid, 12);
+      if (empty) empty.hidden = true;
+
+      try {
+        const query = new URLSearchParams();
+        if (categorySlug && categorySlug !== 'all') {
+          query.set('category', categorySlug);
+        }
+        query.set('page', String(page));
+        query.set('limit', String(state.catalogLimit));
+        query.set('paginate', '1');
+
+        const out = normalizePaged(await jsonFetch(`/api/cakes?${query.toString()}`, { signal }));
+        renderCakes(out.items || []);
+        updatePagination(out.page || 1, out.totalPages || 1, out.limit || 12, out.total);
+      } catch (err) {
+        if (err.name === 'AbortError') return; // Superseded by a newer query
+
+        grid.innerHTML = `
+          <div class="empty" style="grid-column: 1 / -1;">
+            <i class="fa-solid fa-circle-exclamation empty-icon" style="color:var(--dislike)"></i>
+            <h2 class="h2">Unable to load cakes</h2>
+            <p class="muted">${escapeHtml(err.message || 'Please check your connection and try again.')}</p>
+            <button class="btn primary btn-sm mt-14" type="button" id="catalogRetryBtn"><i class="fa-solid fa-arrow-rotate-right"></i> Retry</button>
+          </div>
+        `;
+        const retryBtn = $('#catalogRetryBtn', grid);
+        if (retryBtn) {
+          retryBtn.addEventListener('click', () => loadCatalogPage(categorySlug, page));
+        }
+        if (pagination) pagination.hidden = true;
+      } finally {
+        state.catalogLoading = false;
+      }
     };
 
-    let currentPage = 1;
-    let currentCategory = initialCategory || 'all';
+    // Initialize Category Chips & Datalist
+    const cats = await loadCategories();
 
     if (chips) {
-      const cats = await loadCategories();
+      chips.innerHTML = '<button class="chip active" type="button" data-category="all"><i class="fa-solid fa-sparkles"></i> All Designs</button>';
       cats.forEach(cat => {
         const b = document.createElement('button');
         b.type = 'button';
@@ -675,29 +742,24 @@
         chips.appendChild(b);
       });
 
-      chips.addEventListener('click', async (e) => {
+      chips.addEventListener('click', (e) => {
         const t = e.target;
         if (!(t instanceof Element)) return;
         const chip = t.closest('button.chip');
         if (!chip) return;
-        const slug = chip.dataset.category;
+        const slug = chip.dataset.category || 'all';
         setActiveChip(slug);
-        currentCategory = slug || 'all';
-        currentPage = 1;
         if (catInput) {
           const cat = state.categories.find(c => c.slug === slug);
-          catInput.value = slug === 'all' ? '' : (cat?.name || slug || '');
+          catInput.value = slug === 'all' ? '' : (cat?.name || slug);
         }
-        await loadCakes(currentCategory, currentPage);
+        loadCatalogPage(slug, 1);
       });
     }
 
     if (catList) {
-      catList.innerHTML = '';
-      const optAll = document.createElement('option');
-      optAll.value = 'All';
-      catList.appendChild(optAll);
-      state.categories.forEach(cat => {
+      catList.innerHTML = '<option value="All">All Categories</option>';
+      cats.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = cat.name;
         catList.appendChild(opt);
@@ -705,54 +767,55 @@
     }
 
     if (catInput) {
-      catInput.addEventListener('change', async () => {
-        const slug = matchCategorySlug(catInput.value);
-        setActiveChip(slug);
-        currentCategory = slug || 'all';
-        currentPage = 1;
-        await loadCakes(currentCategory, currentPage);
+      let debounceTimer = null;
+      catInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          const slug = matchCategorySlug(catInput.value);
+          setActiveChip(slug);
+          loadCatalogPage(slug, 1);
+        }, 250);
       });
     }
 
     if (clearBtn) {
-      clearBtn.addEventListener('click', async () => {
+      clearBtn.addEventListener('click', () => {
         if (catInput) catInput.value = '';
         setActiveChip('all');
-        currentCategory = 'all';
-        currentPage = 1;
-        await loadCakes(currentCategory, currentPage);
+        loadCatalogPage('all', 1);
       });
     }
 
     if (prevBtn) {
-      prevBtn.addEventListener('click', async () => {
-        if (currentPage <= 1) return;
-        currentPage -= 1;
-        await loadCakes(currentCategory, currentPage);
+      prevBtn.addEventListener('click', () => {
+        if (state.catalogPage <= 1 || state.catalogLoading) return;
+        const targetPage = state.catalogPage - 1;
+        loadCatalogPage(state.catalogCategory, targetPage);
+        grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     }
 
     if (nextBtn) {
-      nextBtn.addEventListener('click', async () => {
-        currentPage += 1;
-        await loadCakes(currentCategory, currentPage);
+      nextBtn.addEventListener('click', () => {
+        if (state.catalogPage >= state.catalogTotalPages || state.catalogLoading) return;
+        const targetPage = state.catalogPage + 1;
+        loadCatalogPage(state.catalogCategory, targetPage);
+        grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     }
 
-    if (initialCategory) {
-      setActiveChip(initialCategory);
-      currentCategory = initialCategory;
-      if (catInput) {
-        const cat = state.categories.find(c => c.slug === initialCategory);
-        catInput.value = cat?.name || initialCategory;
-      }
-      await loadCakes(currentCategory, currentPage);
-    } else {
-      setActiveChip('all');
-      await loadCakes('all', currentPage);
+    // Load Initial Category
+    setActiveChip(initialCategory);
+    if (initialCategory !== 'all' && catInput) {
+      const cat = cats.find(c => c.slug === initialCategory);
+      catInput.value = cat?.name || initialCategory;
     }
+    await loadCatalogPage(initialCategory, 1);
   };
 
+  // ==========================================================================
+  // Page Initializer: Cake Details & WhatsApp Inquiries
+  // ==========================================================================
   const initDetails = async () => {
     await applyShopInfoToCommonUI();
 
@@ -765,7 +828,13 @@
     const params = new URL(location.href).searchParams;
     const id = params.get('id');
     if (!id) {
-      root.innerHTML = `<div class="panel"><h1 class="h1">Cake not found</h1><p class="muted">Missing cake id.</p><a class="btn primary" href="catalog.html">Back</a></div>`;
+      root.innerHTML = `
+        <div class="empty">
+          <h1 class="h2">Cake not found</h1>
+          <p class="muted">Missing cake ID in the URL.</p>
+          <a class="btn primary" href="catalog.html"><i class="fa-solid fa-arrow-left"></i> Return to Catalog</a>
+        </div>
+      `;
       return;
     }
 
@@ -774,166 +843,209 @@
       document.title = `${cake.name || 'Cake'} — Monginis`;
 
       const img = getCakePrimaryImageUrl(cake);
+      const optimizedImg = optimizeCloudinaryUrl(img, { width: 900, height: 1600, crop: 'limit' });
+      const category = cake.categoryName || (typeof cake.category === 'object' ? cake.category?.name : '') || 'Monginis Collection';
 
       root.innerHTML = `
         <div class="details">
           <div class="detail-media-wrap">
             <div class="detail-badge-row">
-              <span class="detail-badge"><i class="fa-solid fa-sparkles"></i> Premium Cake</span>
-              <span class="detail-badge"><i class="fa-solid fa-cake-candles"></i> Inquiry Ready</span>
+              <span class="detail-badge"><i class="fa-solid fa-sparkles"></i> Signature Creation</span>
+              <span class="detail-badge"><i class="fa-solid fa-layer-group"></i> ${escapeHtml(category)}</span>
             </div>
-            <div class="media detail-media">
-              ${img ? `<img src="${escapeAttr(img)}" alt="${escapeAttr(cake.name || 'Cake')}" loading="eager" />` : ''}
+            <div class="detail-media">
+              ${img ? `
+                <img src="${escapeAttr(optimizedImg)}" alt="${escapeAttr(cake.name || 'Cake')}" loading="eager" onload="this.style.opacity='1'" />
+              ` : `
+                <div class="empty" style="height:100%;border:none;justify-content:center;" aria-hidden="true">
+                  <i class="fa-solid fa-cake-candles icon-pink" style="font-size:48px;"></i>
+                </div>
+              `}
             </div>
           </div>
-          <div class="body">
-            <div class="detail-card detail-intro">
-              <div class="detail-kicker">Monginis Signature Collection</div>
-              <h1 class="title">${escapeHtml(cake.name || 'Cake')}</h1>
-              ${cake.description ? `<p class="sub">${escapeHtml(cake.description)}</p>` : `<p class="sub">Premium Monginis creation.</p>`}
+          <div class="detail-body">
+            <div class="detail-card">
+              <div class="detail-kicker">Monginis — The Celebration Bakers</div>
+              <h1 class="h1" style="margin-bottom:6px;">${escapeHtml(cake.name || 'Cake')}</h1>
+              <p class="sub">${escapeHtml(cake.description || 'Handcrafted fresh to order with premium Monginis bakery ingredients.')}</p>
+              
               <div class="detail-actions">
                 <button class="reaction-btn like-btn" type="button" data-detail-like aria-label="Like" aria-pressed="false">
-                  <i class="fa-regular fa-heart"></i> Like
+                  <i class="fa-regular fa-heart"></i> Like Design
                 </button>
                 <button class="reaction-btn dislike-btn" type="button" data-detail-dislike aria-label="Dislike" aria-pressed="false">
                   <i class="fa-regular fa-thumbs-down"></i> Dislike
                 </button>
+                ${img ? `
+                  <a class="reaction-btn" href="${escapeAttr(img)}" download="${escapeAttr(slugifyStr(cake.name))}.jpg" target="_blank" rel="noopener noreferrer" aria-label="Download design image">
+                    <i class="fa-solid fa-download"></i> Save Image
+                  </a>
+                ` : ''}
               </div>
+
               <div class="reaction-counts" aria-live="polite">
-                <span class="reaction-count like"><span class="emoji">👍</span><span data-like-count>${Number(cake.likes) || 0}</span></span>
-                <span class="reaction-count dislike"><span class="emoji">👎</span><span data-dislike-count>${Number(cake.dislikes) || 0}</span></span>
+                <span class="reaction-count like"><i class="fa-solid fa-heart"></i> <span data-like-count>${Number(cake.likes) || 0}</span> Loved</span>
+                <span class="reaction-count dislike"><i class="fa-solid fa-thumbs-down"></i> <span data-dislike-count>${Number(cake.dislikes) || 0}</span></span>
               </div>
             </div>
 
             <div class="detail-form">
-              <div class="detail-kicker">WhatsApp Inquiry</div>
+              <div class="detail-kicker"><i class="fa-brands fa-whatsapp"></i> WhatsApp Order Inquiry</div>
+              
               <div class="field">
-                <label for="weightInput">Enter weight (Kg)</label>
-                <input type="number" id="weightInput" class="input" placeholder="Enter weight (Kg)" min="0.5" step="0.5">
-                <div class="muted tiny">Enter weight as per your requirement (e.g. 0.5 Kg, 1 Kg, 2 Kg)</div>
+                <label for="weightInput">Select / Enter Cake Weight (Kg)</label>
+                <input type="number" id="weightInput" class="input" placeholder="e.g. 1.0" min="0.5" step="0.5" value="1.0" required />
+                <div class="weight-presets">
+                  <button type="button" class="weight-chip" data-weight="0.5">0.5 Kg</button>
+                  <button type="button" class="weight-chip is-active" data-weight="1.0">1.0 Kg</button>
+                  <button type="button" class="weight-chip" data-weight="1.5">1.5 Kg</button>
+                  <button type="button" class="weight-chip" data-weight="2.0">2.0 Kg</button>
+                  <button type="button" class="weight-chip" data-weight="3.0">3.0 Kg</button>
+                </div>
               </div>
 
               <div class="inquiry-note">
                 <i class="fa-solid fa-comment-dots"></i>
-                <span>Send your requirement on WhatsApp and we will coordinate your cake order.</span>
+                <span>Direct WhatsApp inquiry with your chosen weight and cake image. Our bakers will coordinate pricing, pickup, or delivery.</span>
               </div>
 
-              <div class="buttons detail-buttons">
-                <a class="btn ghost" href="catalog.html"><i class="fa-solid fa-arrow-left"></i> Back</a>
-                <button class="btn primary detail-wa-btn" type="button" data-detail-wa><i class="fa-brands fa-whatsapp"></i> Inquire on WhatsApp</button>
+              <div class="detail-buttons">
+                <a class="btn ghost" href="catalog.html"><i class="fa-solid fa-arrow-left"></i> Catalog</a>
+                <button class="btn primary detail-wa-btn" type="button" id="detailWaBtn">
+                  <i class="fa-brands fa-whatsapp"></i> Inquire on WhatsApp
+                </button>
               </div>
             </div>
           </div>
         </div>
       `;
 
-      const waBtn = $('[data-detail-wa]', root);
-      const likeBtn = $('[data-detail-like]', root);
-      const dislikeBtn = $('[data-detail-dislike]', root);
-
+      // Preset weight chips
       const weightInput = $('#weightInput', root);
+      const chips = $$('.weight-chip', root);
+      chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          chips.forEach(c => c.classList.remove('is-active'));
+          chip.classList.add('is-active');
+          if (weightInput) weightInput.value = chip.dataset.weight;
+        });
+      });
 
+      if (weightInput) {
+        weightInput.addEventListener('input', () => {
+          chips.forEach(c => c.classList.toggle('is-active', c.dataset.weight === weightInput.value));
+        });
+      }
+
+      // WhatsApp Button Handler
+      const waBtn = $('#detailWaBtn', root);
       if (waBtn) {
         waBtn.addEventListener('click', () => {
-          const raw = weightInput instanceof HTMLInputElement ? weightInput.value : '';
+          const raw = weightInput instanceof HTMLInputElement ? weightInput.value.trim() : '1';
           const entered = Number(raw);
           if (!raw || !Number.isFinite(entered) || entered <= 0) {
-            alert('Please enter required cake weight');
+            alert('Please enter a valid cake weight in Kg (e.g. 1.0 Kg)');
+            if (weightInput) weightInput.focus();
             return;
           }
 
-          const message = [
-            'Hello, I want to order a cake:',
+          const info = state.shopInfo || DEFAULT_SHOP_INFO;
+          const phone = info.whatsappNumber || DEFAULT_SHOP_INFO.whatsappNumber;
+
+          const lines = [
+            '🎂 *Monginis Cake Inquiry*',
             '',
-            `Name: ${cake.name || 'Cake'}`,
-            `Weight: ${entered} Kg`,
-            `Image: ${img || getCakePrimaryImageUrl(cake) || ''}`,
-          ].join('\n');
+            `*Cake Name:* ${cake.name || 'Cake'}`,
+            `*Category:* ${category}`,
+            `*Required Weight:* ${entered} Kg`,
+            img ? `*Design Reference:* ${img}` : '',
+            '',
+            'Please let me know availability and pricing. Thank you!',
+          ].filter(Boolean).join('\n');
 
-          const link = `https://wa.me/919613661155?text=${encodeURIComponent(message)}`;
-          window.open(link, '_blank', 'noreferrer');
+          const waUrl = makeWhatsAppLink({ whatsappNumber: phone, message: lines });
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
         });
       }
 
-      if (likeBtn) {
-        likeBtn.addEventListener('click', async () => {
-          setReactionActive(root, 'like');
-          triggerPulse(likeBtn);
-          const countEl = getCountEl(root, 'like');
-          const prevCount = countEl ? Number(countEl.textContent) || 0 : null;
-          if (countEl) {
-            countEl.textContent = String(prevCount + 1);
-            bumpCount(countEl);
-          }
-          try {
-            await jsonFetch('/api/like', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ cakeId: cake._id }),
-            });
-          } catch (err) {
-            if (countEl && prevCount !== null) {
-              countEl.textContent = String(prevCount);
-              bumpCount(countEl);
-            }
-            console.warn(err);
-          }
-        });
-      }
+      // Like & Dislike Handler
+      const likeBtn = $('[data-detail-like]', root);
+      const dislikeBtn = $('[data-detail-dislike]', root);
 
-      if (dislikeBtn) {
-        dislikeBtn.addEventListener('click', async () => {
-          setReactionActive(root, 'dislike');
-          triggerPulse(dislikeBtn);
-          const countEl = getCountEl(root, 'dislike');
-          const prevCount = countEl ? Number(countEl.textContent) || 0 : null;
-          if (countEl) {
-            countEl.textContent = String(prevCount + 1);
-            bumpCount(countEl);
-          }
-          try {
-            await jsonFetch('/api/dislike', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ cakeId: cake._id }),
-            });
-          } catch (err) {
-            if (countEl && prevCount !== null) {
-              countEl.textContent = String(prevCount);
-              bumpCount(countEl);
-            }
-            console.warn(err);
-          }
-        });
-      }
+      const handleReaction = async (action, btn) => {
+        setReactionActive(root, action);
+        triggerPulse(btn);
+        const countEl = root.querySelector(`[data-${action}-count]`);
+        const prev = countEl ? Number(countEl.textContent) || 0 : null;
+        if (countEl) {
+          countEl.textContent = String(prev + 1);
+          bumpCount(countEl);
+        }
+        try {
+          await jsonFetch(`/api/${action}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cakeId: cake._id }),
+          });
+        } catch {
+          if (countEl && prev !== null) countEl.textContent = String(prev);
+        }
+      };
 
-      // Similar cakes
+      if (likeBtn) likeBtn.addEventListener('click', () => handleReaction('like', likeBtn));
+      if (dislikeBtn) dislikeBtn.addEventListener('click', () => handleReaction('dislike', dislikeBtn));
+
+      // Load Similar Cakes
       if (similar) {
-        const list = await jsonFetch(`/api/cakes?category=${encodeURIComponent(cake.categorySlug || cake.category?.slug || '')}`);
-        similar.innerHTML = '';
-        (Array.isArray(list) ? list : []).filter(c => c._id !== cake._id).slice(0, 6).forEach(c => similar.appendChild(cakeCard(c)));
+        renderSkeletonGrid(similar, 4);
+        try {
+          const catQuery = cake.categorySlug || (typeof cake.category === 'object' ? cake.category?.slug : '');
+          const list = await jsonFetch(`/api/cakes?category=${encodeURIComponent(catQuery)}&limit=5`);
+          similar.innerHTML = '';
+          const items = (Array.isArray(list) ? list : (list.items || []))
+            .filter(c => String(c._id) !== String(cake._id))
+            .slice(0, 4);
+          
+          if (!items.length) {
+            similar.innerHTML = '<div class="empty" style="grid-column: 1 / -1;"><p class="muted">Explore more designs in our catalog.</p></div>';
+          } else {
+            items.forEach(c => similar.appendChild(cakeCard(c)));
+          }
+        } catch {
+          similar.innerHTML = '';
+        }
       }
-
     } catch (err) {
-      root.innerHTML = `<div class="panel"><h1 class="h1">Cake not found</h1><p class="muted">${escapeHtml(err.message || 'Please try again.')}</p><a class="btn primary" href="catalog.html">Back</a></div>`;
+      root.innerHTML = `
+        <div class="empty">
+          <i class="fa-solid fa-circle-exclamation empty-icon" style="color:var(--dislike)"></i>
+          <h2 class="h2">Cake not found</h2>
+          <p class="muted">${escapeHtml(err.message || 'The requested cake design could not be found.')}</p>
+          <a class="btn primary mt-14" href="catalog.html"><i class="fa-solid fa-arrow-left"></i> Browse All Cakes</a>
+        </div>
+      `;
     }
   };
 
+  // ==========================================================================
+  // Page Initializers: Contact & About
+  // ==========================================================================
   const initContact = async () => {
     await applyShopInfoToCommonUI();
-
     const info = await loadShopInfo();
     const mapWrap = $('#mapWrap');
     if (mapWrap) {
       const embed = safeUrl(info.googleMapsEmbedUrl);
       const canEmbed = Boolean(embed && String(info.googleMapsEmbedUrl || '').includes('/maps/embed'));
       if (canEmbed) {
-        mapWrap.innerHTML = `<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${escapeAttr(embed)}" title="Google Maps"></iframe>`;
+        mapWrap.innerHTML = `<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${escapeAttr(embed)}" title="Monginis Cake Shop Location"></iframe>`;
       } else {
         mapWrap.innerHTML = `
-          <div class="empty">
-            <h2 class="h2">Find us on the map</h2>
-            <p class="muted">Use the button below to open the shop location in Google Maps.</p>
+          <div class="empty" style="min-height:260px;justify-content:center;">
+            <i class="fa-solid fa-map-location-dot empty-icon"></i>
+            <h2 class="h2">Find Us in Aurangabad / CSN</h2>
+            <p class="muted">${escapeHtml(info.address || DEFAULT_SHOP_INFO.address)}</p>
+            <a class="btn primary btn-sm" href="${escapeAttr(getShopLink(info, 'maps'))}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-location-arrow"></i> Open Google Maps</a>
           </div>
         `;
       }
@@ -944,7 +1056,9 @@
     await applyShopInfoToCommonUI();
   };
 
-  // Admin
+  // ==========================================================================
+  // Page Initializer: Admin Login
+  // ==========================================================================
   const initAdminLogin = async () => {
     setYear();
     const form = $('#adminLoginForm');
@@ -959,12 +1073,15 @@
       const password = String($('#adminPassword')?.value || '');
 
       if (!email || !password) {
-        if (msg) msg.textContent = 'Enter email and password.';
+        if (msg) msg.textContent = 'Please enter both email and password.';
         return;
       }
 
-      if (btn) btn.disabled = true;
-      if (msg) msg.textContent = 'Signing in…';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Signing In…';
+      }
+      if (msg) msg.textContent = 'Authenticating…';
 
       try {
         const out = await jsonFetch('/api/admin/login', {
@@ -975,13 +1092,19 @@
         localStorage.setItem('monginis_admin_token', out.token);
         location.href = 'admin-dashboard.html';
       } catch (err) {
-        if (msg) msg.textContent = err.message || 'Login failed.';
+        if (msg) msg.textContent = err.message || 'Login failed. Please check credentials.';
       } finally {
-        if (btn) btn.disabled = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-lock"></i> Sign In';
+        }
       }
     });
   };
 
+  // ==========================================================================
+  // Page Initializer: Admin Dashboard
+  // ==========================================================================
   const initAdminDashboard = async () => {
     setYear();
 
@@ -999,12 +1122,18 @@
       });
     }
 
-    const toast = (t) => {
-      const el = $('#adminToast');
-      if (!el) return;
-      el.textContent = t;
+    const toast = (text) => {
+      let el = $('#adminToast');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'adminToast';
+        el.className = 'admin-toast';
+        document.body.appendChild(el);
+      }
+      el.textContent = text;
       el.hidden = false;
-      setTimeout(() => { el.hidden = true; }, 1600);
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => { el.hidden = true; }, 2400);
     };
 
     const fetchAllCakes = async () => {
@@ -1032,23 +1161,27 @@
       if (search) {
         list = list.filter(c => String(c.name || '').toLowerCase().includes(search));
       }
-      renderCakes(list);
+      renderAdminCakes(list);
     };
 
     const refreshAll = async () => {
-      const [cats, cakes, info] = await Promise.all([
-        authedFetch('/api/categories'),
-        fetchAllCakes(),
-        authedFetch('/api/shop-info'),
-      ]);
-      state.categories = Array.isArray(cats) ? cats : [];
-      state.shopInfo = info;
-      state.adminCakes = Array.isArray(cakes) ? cakes : [];
-      renderCategories();
-      renderShopInfo(info);
-      renderAnalytics(state.adminCakes);
-      fillCategorySelects();
-      applyCakeFilters();
+      try {
+        const [cats, cakes, info] = await Promise.all([
+          authedFetch('/api/categories'),
+          fetchAllCakes(),
+          authedFetch('/api/shop-info'),
+        ]);
+        state.categories = Array.isArray(cats) ? cats : [];
+        state.shopInfo = info;
+        state.adminCakes = Array.isArray(cakes) ? cakes : [];
+        renderCategories();
+        renderShopInfo(info);
+        renderAnalytics(state.adminCakes);
+        fillCategorySelects();
+        applyCakeFilters();
+      } catch (err) {
+        toast('Failed to load dashboard data');
+      }
     };
 
     const catList = $('#catList');
@@ -1060,8 +1193,8 @@
         const current = sel.value;
         const wantsAll = sel.dataset.allOption === '1' || sel.id === 'adminCakeCategory';
         sel.innerHTML = wantsAll
-          ? '<option value="">All categories</option>'
-          : '<option value="">Select category</option>';
+          ? '<option value="">All Categories</option>'
+          : '<option value="">Select Category</option>';
         state.categories.forEach(cat => {
           const opt = document.createElement('option');
           opt.value = cat._id;
@@ -1072,12 +1205,11 @@
       });
     };
 
-
     const renderCategories = () => {
       if (!catList) return;
       catList.innerHTML = '';
       if (!state.categories.length) {
-        catList.innerHTML = `<div class="row"><div class="row-head"><div class="row-title">No categories</div></div><small>Create one below.</small></div>`;
+        catList.innerHTML = `<div class="row"><div class="row-head"><div class="row-title">No categories yet</div></div><small>Create your first category above.</small></div>`;
         return;
       }
 
@@ -1088,28 +1220,28 @@
           <div class="row-head">
             <div>
               <div class="row-title">${escapeHtml(cat.name)}</div>
-              <small>${escapeHtml(cat.slug)}</small>
+              <small class="muted">${escapeHtml(cat.slug)}</small>
             </div>
             <div class="admin-actions">
-              <button class="btn ghost" type="button" data-cat-edit="${escapeAttr(cat._id)}"><i class="fa-solid fa-pen"></i> Edit</button>
-              <button class="btn danger" type="button" data-cat-del="${escapeAttr(cat._id)}"><i class="fa-solid fa-trash"></i> Delete</button>
+              <button class="btn ghost btn-sm" type="button" data-cat-edit="${escapeAttr(cat._id)}"><i class="fa-solid fa-pen"></i> Edit</button>
+              <button class="btn danger btn-sm" type="button" data-cat-del="${escapeAttr(cat._id)}"><i class="fa-solid fa-trash"></i> Delete</button>
             </div>
           </div>
           <div class="details-block" hidden data-cat-form="${escapeAttr(cat._id)}">
-            <div class="field"><label>Category name</label><input class="input" value="${escapeAttr(cat.name)}" data-cat-name /></div>
-            <button class="btn primary" type="button" data-cat-save="${escapeAttr(cat._id)}"><i class="fa-solid fa-check"></i> Save</button>
+            <div class="field"><label>Category Name</label><input class="input" value="${escapeAttr(cat.name)}" data-cat-name /></div>
+            <button class="btn primary btn-sm" type="button" data-cat-save="${escapeAttr(cat._id)}"><i class="fa-solid fa-check"></i> Save</button>
           </div>
         `;
         catList.appendChild(row);
       });
     };
 
-    const renderCakes = (cakes) => {
+    const renderAdminCakes = (cakes) => {
       if (!cakeList) return;
       const list = Array.isArray(cakes) ? cakes : [];
       cakeList.innerHTML = '';
       if (!list.length) {
-        cakeList.innerHTML = `<div class="row"><div class="row-head"><div class="row-title">No cakes yet</div></div><small>Upload images and create a cake.</small></div>`;
+        cakeList.innerHTML = `<div class="row"><div class="row-head"><div class="row-title">No cakes found</div></div><small>Create cakes or clear search filters.</small></div>`;
         return;
       }
 
@@ -1122,26 +1254,26 @@
           <div class="row-head">
             <div>
               <div class="row-title">${escapeHtml(cake.name || 'Cake')}</div>
-              <small>${escapeHtml(cake.categoryName || 'Category')} • ${imgCount} image(s)</small>
+              <small class="muted">${escapeHtml(cake.categoryName || 'Category')} • ${imgCount} image(s)</small>
             </div>
             <div class="admin-actions">
-              <button class="btn ghost" type="button" data-cake-toggle="${escapeAttr(cake._id)}"><i class="fa-solid fa-gear"></i> Manage</button>
-              <button class="btn danger" type="button" data-cake-del="${escapeAttr(cake._id)}"><i class="fa-solid fa-trash"></i> Delete</button>
+              <button class="btn ghost btn-sm" type="button" data-cake-toggle="${escapeAttr(cake._id)}"><i class="fa-solid fa-gear"></i> Manage</button>
+              <button class="btn danger btn-sm" type="button" data-cake-del="${escapeAttr(cake._id)}"><i class="fa-solid fa-trash"></i> Delete</button>
             </div>
           </div>
           <div class="details-block" hidden data-cake-panel="${escapeAttr(cake._id)}">
             <div class="grid two">
-              <div class="field"><label>Name</label><input class="input" value="${escapeAttr(cake.name || '')}" data-cake-name /></div>
+              <div class="field"><label>Cake Name</label><input class="input" value="${escapeAttr(cake.name || '')}" data-cake-name /></div>
               <div class="field"><label>Category</label>
                 <select class="input categorySelect" data-cake-cat>
-                  <option value="">Select category</option>
+                  <option value="">Select Category</option>
                 </select>
               </div>
             </div>
             <div class="field"><label>Description</label><textarea class="input" rows="3" data-cake-desc>${escapeHtml(cake.description || '')}</textarea></div>
 
             <div>
-              <div class="muted" style="font-weight:900;margin-bottom:8px;">Images</div>
+              <div class="muted tiny" style="font-weight:800;margin-bottom:8px;text-transform:uppercase;">Images</div>
               <div class="img-strip" data-img-strip>
                 ${(
                   (Array.isArray(cake.images) && cake.images.length)
@@ -1152,7 +1284,7 @@
                     <img src="${escapeAttr(im.url)}" alt="" loading="lazy" />
                     ${im.publicId && im.publicId !== 'legacy'
                       ? `<button type="button" aria-label="Delete image" data-img-del="${escapeAttr(im.publicId)}"><i class="fa-solid fa-xmark"></i></button>`
-                      : ``
+                      : ''
                     }
                   </div>
                 `).join('')}
@@ -1160,87 +1292,88 @@
             </div>
 
             <div class="grid two">
-              <div class="field"><label>Upload more images</label><input class="input" type="file" accept="image/*" multiple data-cake-files /></div>
-              <div class="field"><label>&nbsp;</label><button class="btn primary" type="button" data-cake-upload><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button></div>
+              <div class="field"><label>Upload More Images</label><input class="input" type="file" accept="image/*" multiple data-cake-files /></div>
+              <div class="field"><label>&nbsp;</label><button class="btn primary btn-sm" type="button" data-cake-upload><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button></div>
             </div>
 
-            <button class="btn primary" type="button" data-cake-save><i class="fa-solid fa-check"></i> Save changes</button>
-            <div class="count-row">
-              <span><i class="fa-solid fa-heart" style="color:#e91e63"></i> ${cake.likes ?? 0}</span>
-              <span><i class="fa-solid fa-thumbs-down" style="color:#7c4dff"></i> ${cake.dislikes ?? 0}</span>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <button class="btn primary btn-sm" type="button" data-cake-save><i class="fa-solid fa-check"></i> Save Changes</button>
+              <span class="muted tiny" style="font-weight:800;">
+                <i class="fa-solid fa-heart" style="color:var(--like)"></i> ${cake.likes ?? 0} &nbsp;
+                <i class="fa-solid fa-thumbs-down" style="color:var(--dislike)"></i> ${cake.dislikes ?? 0}
+              </span>
             </div>
           </div>
         `;
         cakeList.appendChild(row);
 
-        // Set category select after render
         const sel = $('[data-cake-cat]', row);
-        if (sel && cake.category) sel.value = typeof cake.category === 'string' ? cake.category : cake.category._id;
+        if (sel && cake.category) {
+          sel.value = typeof cake.category === 'string' ? cake.category : cake.category._id;
+        }
       });
 
       fillCategorySelects();
-
-      // Set selects to current values
-      list.forEach((cake, idx) => {
-        const row = cakeList.children[idx];
-        const sel = row ? row.querySelector('[data-cake-cat]') : null;
-        if (sel) {
-          const cid = (typeof cake.category === 'string') ? cake.category : cake.category?._id;
-          if (cid) sel.value = cid;
-        }
-      });
     };
 
     const renderShopInfo = (info) => {
-      $('#shopAddress').value = info.address || '';
-      $('#shopPhone').value = info.phone || '';
-      $('#shopEmail').value = info.email || '';
-      $('#shopHours').value = info.openingHours || '';
-      $('#shopWhatsapp').value = info.whatsappNumber || '';
-      $('#shopInstagram').value = info.instagramUrl || '';
-      $('#shopFacebook').value = info.facebookUrl || '';
-      $('#shopMaps').value = info.googleMapsUrl || info.googleMapsEmbedUrl || '';
-      const reviewsField = $('#shopReviews');
-      if (reviewsField) reviewsField.value = info.googleReviewsUrl || '';
+      if ($('#shopAddress')) $('#shopAddress').value = info.address || '';
+      if ($('#shopPhone')) $('#shopPhone').value = info.phone || '';
+      if ($('#shopEmail')) $('#shopEmail').value = info.email || '';
+      if ($('#shopHours')) $('#shopHours').value = info.openingHours || '';
+      if ($('#shopWhatsapp')) $('#shopWhatsapp').value = info.whatsappNumber || '';
+      if ($('#shopInstagram')) $('#shopInstagram').value = info.instagramUrl || '';
+      if ($('#shopFacebook')) $('#shopFacebook').value = info.facebookUrl || '';
+      if ($('#shopMaps')) $('#shopMaps').value = info.googleMapsUrl || info.googleMapsEmbedUrl || '';
+      if ($('#shopReviews')) $('#shopReviews').value = info.googleReviewsUrl || '';
     };
 
     const renderAnalytics = (cakes) => {
       const list = Array.isArray(cakes) ? cakes : [];
       const totalLikes = list.reduce((sum, c) => sum + (Number(c.likes) || 0), 0);
       const totalDislikes = list.reduce((sum, c) => sum + (Number(c.dislikes) || 0), 0);
-      $('#anaLikes').textContent = String(totalLikes);
-      $('#anaDislikes').textContent = String(totalDislikes);
+      if ($('#anaLikes')) $('#anaLikes').textContent = String(totalLikes);
+      if ($('#anaDislikes')) $('#anaDislikes').textContent = String(totalDislikes);
+
       const top = [...list].sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0)).slice(0, 5);
       const box = $('#anaTop');
-      box.innerHTML = '';
-      top.forEach(c => {
-        const div = document.createElement('div');
-        div.className = 'row';
-        div.innerHTML = `<div class="row-head"><div class="row-title">${escapeHtml(c.name || 'Cake')}</div><small>${Number(c.likes) || 0} likes</small></div>`;
-        box.appendChild(div);
-      });
-      if (!top.length) box.innerHTML = `<div class="row"><div class="row-head"><div class="row-title">No data yet</div></div><small>Likes/dislikes appear once customers interact.</small></div>`;
+      if (box) {
+        box.innerHTML = '';
+        top.forEach(c => {
+          const div = document.createElement('div');
+          div.className = 'row';
+          div.innerHTML = `<div class="row-head"><div class="row-title">${escapeHtml(c.name || 'Cake')}</div><small style="color:var(--like);font-weight:800;"><i class="fa-solid fa-heart"></i> ${Number(c.likes) || 0}</small></div>`;
+          box.appendChild(div);
+        });
+        if (!top.length) {
+          box.innerHTML = `<div class="row"><div class="row-head"><div class="row-title">No analytics yet</div></div><small class="muted">Likes/dislikes appear once customers interact.</small></div>`;
+        }
+      }
     };
 
-    // Category create
+    // Category Creation
     const catCreateForm = $('#catCreateForm');
     if (catCreateForm) {
       catCreateForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = String($('#newCatName').value || '').trim();
+        const name = String($('#newCatName')?.value || '').trim();
         if (!name) return;
-        await authedFetch('/api/categories', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name }),
-        });
-        $('#newCatName').value = '';
-        toast('Category created');
-        await refreshAll();
+        try {
+          await authedFetch('/api/categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+          });
+          $('#newCatName').value = '';
+          toast('Category created');
+          await refreshAll();
+        } catch (err) {
+          toast(err.message || 'Failed to create category');
+        }
       });
     }
 
-    // Cake create
+    // Cake Creation with Multi-Image Upload
     const cakeCreateForm = $('#cakeCreateForm');
     let pendingUpload = [];
 
@@ -1266,53 +1399,58 @@
       if (uploadBtn && filesInput) {
         uploadBtn.addEventListener('click', async () => {
           if (!filesInput.files || !filesInput.files.length) {
-            toast('Pick images first');
+            toast('Please select image files first');
             return;
           }
           uploadBtn.disabled = true;
-          uploadBtn.textContent = 'Uploading…';
+          uploadBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Uploading…';
           try {
             const categoryId = String($('#createCakeCategory')?.value || '').trim();
             pendingUpload = await uploadImages(filesInput.files, categoryId);
-            if (uploadedLabel) uploadedLabel.textContent = `${pendingUpload.length} image(s) uploaded`;
+            if (uploadedLabel) uploadedLabel.textContent = `${pendingUpload.length} image(s) uploaded successfully`;
             toast('Images uploaded');
           } catch (err) {
             toast(err.message || 'Upload failed');
           } finally {
             uploadBtn.disabled = false;
-            uploadBtn.textContent = 'Upload';
+            uploadBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Upload';
           }
         });
       }
 
       cakeCreateForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = String($('#createCakeName').value || '').trim();
-        const categoryId = String($('#createCakeCategory').value || '').trim();
-        const description = String($('#createCakeDesc').value || '').trim();
+        const name = String($('#createCakeName')?.value || '').trim();
+        const categoryId = String($('#createCakeCategory')?.value || '').trim();
+        const description = String($('#createCakeDesc')?.value || '').trim();
 
         if (!name || !categoryId) {
-          toast('Name and category required');
+          toast('Name and category are required');
           return;
         }
 
-        await authedFetch('/api/cakes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, categoryId, description, images: pendingUpload }),
-        });
+        try {
+          await authedFetch('/api/cakes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, categoryId, description, images: pendingUpload }),
+          });
 
-        pendingUpload = [];
-        if (uploadedLabel) uploadedLabel.textContent = 'No uploads yet';
-        $('#createCakeName').value = '';
-        $('#createCakeDesc').value = '';
-        if (filesInput) filesInput.value = '';
+          pendingUpload = [];
+          if (uploadedLabel) uploadedLabel.textContent = 'No uploads yet';
+          $('#createCakeName').value = '';
+          $('#createCakeDesc').value = '';
+          if (filesInput) filesInput.value = '';
 
-        toast('Cake created');
-        await refreshAll();
+          toast('Cake created successfully');
+          await refreshAll();
+        } catch (err) {
+          toast(err.message || 'Failed to create cake');
+        }
       });
     }
 
+    // Search & Filter Listeners in Admin
     const adminSearch = $('#adminCakeSearch');
     const adminCategory = $('#adminCakeCategory');
     if (adminSearch) {
@@ -1328,6 +1466,9 @@
       });
     }
 
+    // ========================================================================
+    // Bulk Upload System with Sequential Canvas Compression & Chunked Upload
+    // ========================================================================
     const bulkForm = $('#bulkUploadForm');
     if (bulkForm) {
       const bulkCategory = $('#bulkCategory');
@@ -1345,44 +1486,14 @@
       const bulkGrid = $('#bulkGrid');
       const bulkSummary = $('#bulkSummary');
 
-      const updateBulkUI = (state) => {
+      const updateBulkUI = (stats) => {
         if (bulkCounts) {
-          bulkCounts.textContent = `Uploading ${state.uploaded} / ${state.total} images...`;
+          bulkCounts.textContent = `Processing ${stats.uploaded} / ${stats.total} images…`;
         }
-        if (bulkPercent) bulkPercent.textContent = `${Math.round(state.percent)}%`;
-        if (bulkFailed) bulkFailed.textContent = `Failed: ${state.failed}`;
-        if (bulkUploaded) bulkUploaded.textContent = `Uploaded: ${state.uploaded}`;
-        if (bulkBarFill) bulkBarFill.style.width = `${Math.max(0, Math.min(100, state.percent))}%`;
-        const bar = bulkBarFill?.parentElement;
-        if (bar) bar.setAttribute('aria-valuenow', String(Math.round(state.percent)));
-      };
-
-      const bulkCard = (cake) => {
-        const img = getCakePrimaryImageUrl(cake);
-        const el = document.createElement('div');
-        el.className = 'card bulk-card';
-        el.innerHTML = `
-          <div class="card-media">
-            ${img ? `<img src="${escapeAttr(img)}" alt="${escapeAttr(cake.name || 'Cake')}" loading="lazy" />` : ''}
-          </div>
-          <div class="card-body">
-            <div class="card-title">${escapeHtml(cake.name || 'Cake')}</div>
-            <div class="card-meta">
-              <span class="pill">${escapeHtml(cake.categoryName || 'Category')}</span>
-            </div>
-            <div class="count-row">
-              <span><i class="fa-solid fa-heart" style="color:#e91e63"></i> ${cake.likes ?? 0}</span>
-              <span><i class="fa-solid fa-thumbs-down" style="color:#7c4dff"></i> ${cake.dislikes ?? 0}</span>
-            </div>
-            <div class="action-row">
-              <span class="action like" aria-hidden="true"><i class="fa-regular fa-heart"></i></span>
-              <span class="action dislike" aria-hidden="true"><i class="fa-regular fa-thumbs-down"></i></span>
-              ${img ? `<a class="action download" href="${escapeAttr(img)}" download target="_blank" rel="noreferrer" aria-label="Download"><i class="fa-solid fa-download"></i></a>` : '<span class="action download" aria-hidden="true"></span>'}
-              <span class="action" aria-hidden="true"><i class="fa-solid fa-cake-candles"></i></span>
-            </div>
-          </div>
-        `;
-        return el;
+        if (bulkPercent) bulkPercent.textContent = `${Math.round(stats.percent)}%`;
+        if (bulkFailed) bulkFailed.textContent = `Failed: ${stats.failed}`;
+        if (bulkUploaded) bulkUploaded.textContent = `Uploaded: ${stats.uploaded}`;
+        if (bulkBarFill) bulkBarFill.style.width = `${Math.max(0, Math.min(100, stats.percent))}%`;
       };
 
       const uploadBulkBatch = (files, categoryId, onProgress) => new Promise((resolve, reject) => {
@@ -1404,13 +1515,13 @@
           try {
             out = JSON.parse(xhr.responseText || '{}');
           } catch {
-            return reject(new Error('Upload failed'));
+            return reject(new Error('Batch upload failed'));
           }
           if (xhr.status >= 200 && xhr.status < 300) return resolve(out);
-          return reject(new Error(out.message || 'Upload failed'));
+          return reject(new Error(out.message || 'Batch upload failed'));
         };
 
-        xhr.onerror = () => reject(new Error('Upload failed'));
+        xhr.onerror = () => reject(new Error('Network error during upload'));
         xhr.send(fd);
       });
 
@@ -1430,11 +1541,11 @@
           return;
         }
         if (!files.length) {
-          toast('Pick images first');
+          toast('Select images first');
           return;
         }
         if (files.length > 30) {
-          toast('Select up to 30 images');
+          toast('Select up to 30 images at a time');
           return;
         }
 
@@ -1442,19 +1553,17 @@
         if (bulkProgress) bulkProgress.hidden = false;
         if (bulkResults) bulkResults.hidden = true;
         if (bulkGrid) bulkGrid.innerHTML = '';
-        if (bulkSummary) bulkSummary.textContent = 'Uploading...';
+        if (bulkSummary) bulkSummary.textContent = 'Preparing files…';
 
         const stats = { total: files.length, uploaded: 0, failed: 0, percent: 0 };
         updateBulkUI(stats);
 
         try {
-          if (bulkStatus) bulkStatus.textContent = 'Optimizing images…';
+          if (bulkStatus) bulkStatus.textContent = 'Optimizing images for web…';
           const optimized = [];
           for (let i = 0; i < files.length; i += 1) {
-            if (bulkStatus) bulkStatus.textContent = `Optimizing ${i + 1} / ${files.length} images…`;
-            // Keep memory steady: process sequentially
-            // eslint-disable-next-line no-await-in-loop
-            const out = await compressImageFile(files[i], { maxSize: 1600, quality: 0.8 });
+            if (bulkStatus) bulkStatus.textContent = `Optimizing image ${i + 1} of ${files.length}…`;
+            const out = await compressImageFile(files[i], { maxSize: 1600, quality: 0.82 });
             optimized.push(out);
           }
 
@@ -1464,9 +1573,8 @@
             const batch = optimized.slice(i, i + batchSize);
             const basePercent = (stats.uploaded / stats.total) * 100;
             const batchWeight = (batch.length / stats.total) * 100;
-            if (bulkStatus) bulkStatus.textContent = 'Uploading...';
+            if (bulkStatus) bulkStatus.textContent = `Uploading batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(optimized.length / batchSize)}…`;
 
-            // eslint-disable-next-line no-await-in-loop
             const result = await uploadBulkBatch(batch, categoryId, (pct) => {
               stats.percent = basePercent + (pct / 100) * batchWeight;
               updateBulkUI(stats);
@@ -1481,50 +1589,54 @@
             updateBulkUI(stats);
           }
 
-          if (bulkStatus) bulkStatus.textContent = 'Upload complete';
-          if (bulkCounts) bulkCounts.textContent = `Uploaded ${stats.uploaded} / ${stats.total} images.`;
-          if (bulkSummary) bulkSummary.textContent = `Created ${created.length} cakes, ${stats.failed} failed.`;
+          if (bulkStatus) bulkStatus.textContent = 'Bulk upload completed!';
+          if (bulkCounts) bulkCounts.textContent = `Uploaded ${stats.uploaded} of ${stats.total} images.`;
+          if (bulkSummary) bulkSummary.textContent = `Successfully created ${created.length} cakes (${stats.failed} failed).`;
           if (bulkResults) bulkResults.hidden = false;
-          if (bulkGrid) created.forEach(cake => bulkGrid.appendChild(bulkCard(cake)));
+          if (bulkGrid) created.forEach(c => bulkGrid.appendChild(cakeCard(c)));
           toast('Bulk upload complete');
           await refreshAll();
         } catch (err) {
-          if (bulkStatus) bulkStatus.textContent = 'Upload failed';
-          toast(err.message || 'Bulk upload failed');
+          if (bulkStatus) bulkStatus.textContent = 'Upload interrupted';
+          toast(err.message || 'Bulk upload encountered an error');
         } finally {
           if (bulkBtn) bulkBtn.disabled = false;
         }
       });
     }
 
-    // Shop info save
+    // Shop Info Form
     const shopForm = $('#shopForm');
     if (shopForm) {
       shopForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const payload = {
-          address: $('#shopAddress').value,
-          phone: $('#shopPhone').value,
-          email: $('#shopEmail').value,
-          openingHours: $('#shopHours').value,
-          whatsappNumber: $('#shopWhatsapp').value,
-          instagramUrl: $('#shopInstagram').value,
-          facebookUrl: $('#shopFacebook').value,
-          googleMapsUrl: $('#shopMaps').value,
-          googleMapsEmbedUrl: $('#shopMaps').value,
-          googleReviewsUrl: $('#shopReviews') ? $('#shopReviews').value : '',
+          address: $('#shopAddress')?.value || '',
+          phone: $('#shopPhone')?.value || '',
+          email: $('#shopEmail')?.value || '',
+          openingHours: $('#shopHours')?.value || '',
+          whatsappNumber: $('#shopWhatsapp')?.value || '',
+          instagramUrl: $('#shopInstagram')?.value || '',
+          facebookUrl: $('#shopFacebook')?.value || '',
+          googleMapsUrl: $('#shopMaps')?.value || '',
+          googleMapsEmbedUrl: $('#shopMaps')?.value || '',
+          googleReviewsUrl: $('#shopReviews')?.value || '',
         };
-        await authedFetch('/api/shop-info', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        toast('Shop info updated');
-        await refreshAll();
+        try {
+          await authedFetch('/api/shop-info', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          toast('Shop info updated');
+          await refreshAll();
+        } catch (err) {
+          toast(err.message || 'Failed to update shop info');
+        }
       });
     }
 
-    // Delegation: categories and cakes
+    // Delegation: Admin Actions
     document.addEventListener('click', async (e) => {
       const t = e.target;
       if (!(t instanceof Element)) return;
@@ -1541,10 +1653,14 @@
 
       if (catDel) {
         const id = catDel.getAttribute('data-cat-del');
-        if (!confirm('Delete this category?')) return;
-        await authedFetch(`/api/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        toast('Category deleted');
-        await refreshAll();
+        if (!confirm('Are you sure you want to delete this category?')) return;
+        try {
+          await authedFetch(`/api/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          toast('Category deleted');
+          await refreshAll();
+        } catch (err) {
+          toast(err.message || 'Failed to delete category');
+        }
       }
 
       if (catSave) {
@@ -1552,15 +1668,18 @@
         const block = document.querySelector(`[data-cat-form="${CSS.escape(id)}"]`);
         const name = block ? String(block.querySelector('[data-cat-name]')?.value || '').trim() : '';
         if (!name) return;
-        await authedFetch(`/api/categories/${encodeURIComponent(id)}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name }),
-        });
-        toast('Category updated');
-        await refreshAll();
+        try {
+          await authedFetch(`/api/categories/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+          });
+          toast('Category updated');
+          await refreshAll();
+        } catch (err) {
+          toast(err.message || 'Failed to update category');
+        }
       }
-
 
       const cakeToggle = t.closest('[data-cake-toggle]');
       const cakeDel = t.closest('[data-cake-del]');
@@ -1573,10 +1692,14 @@
 
       if (cakeDel) {
         const id = cakeDel.getAttribute('data-cake-del');
-        if (!confirm('Delete this cake and all its images?')) return;
-        await authedFetch(`/api/cakes/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        toast('Cake deleted');
-        await refreshAll();
+        if (!confirm('Are you sure you want to delete this cake design? This also deletes its images.')) return;
+        try {
+          await authedFetch(`/api/cakes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          toast('Cake deleted');
+          await refreshAll();
+        } catch (err) {
+          toast(err.message || 'Failed to delete cake');
+        }
       }
 
       const cakeSave = t.closest('[data-cake-save]');
@@ -1590,24 +1713,23 @@
         if (cakeUpload) {
           const input = panel.querySelector('[data-cake-files]');
           if (!input?.files || !input.files.length) {
-            toast('Pick images first');
+            toast('Select images first');
             return;
           }
           cakeUpload.disabled = true;
-          cakeUpload.textContent = 'Uploading…';
+          cakeUpload.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Uploading…';
           try {
             const categoryId = String(panel.querySelector('[data-cake-cat]')?.value || '').trim();
             const uploaded = await uploadImages(input.files, categoryId);
-            // Save uploaded images into cake
             await authedFetch(`/api/cakes/${encodeURIComponent(cakeId)}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ appendImages: uploaded }),
             });
-            toast('Images added');
+            toast('Images appended');
             await refreshAll();
           } catch (err) {
-            toast(err.message || 'Upload failed');
+            toast(err.message || 'Image upload failed');
           } finally {
             cakeUpload.disabled = false;
             cakeUpload.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Upload';
@@ -1619,13 +1741,17 @@
           const categoryId = String(panel.querySelector('[data-cake-cat]')?.value || '').trim();
           const description = String(panel.querySelector('[data-cake-desc]')?.value || '').trim();
 
-          await authedFetch(`/api/cakes/${encodeURIComponent(cakeId)}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, categoryId, description }),
-          });
-          toast('Cake updated');
-          await refreshAll();
+          try {
+            await authedFetch(`/api/cakes/${encodeURIComponent(cakeId)}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, categoryId, description }),
+            });
+            toast('Cake updated');
+            await refreshAll();
+          } catch (err) {
+            toast(err.message || 'Failed to save cake changes');
+          }
         }
       }
 
@@ -1635,26 +1761,32 @@
         const cakeId = panel ? panel.getAttribute('data-cake-panel') : null;
         const publicId = imgDel.getAttribute('data-img-del');
         if (!cakeId || !publicId) return;
-        if (!confirm('Delete this image?')) return;
-        await authedFetch('/api/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cakeId, publicId }),
-        });
-        toast('Image deleted');
-        await refreshAll();
+        if (!confirm('Delete this image from the cake design?')) return;
+        try {
+          await authedFetch('/api/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cakeId, publicId }),
+          });
+          toast('Image deleted');
+          await refreshAll();
+        } catch (err) {
+          toast(err.message || 'Failed to delete image');
+        }
       }
     });
 
     try {
       await refreshAll();
     } catch (err) {
-      console.warn(err);
       localStorage.removeItem('monginis_admin_token');
       location.href = 'admin-login.html';
     }
   };
 
+  // ==========================================================================
+  // Application Bootstrap
+  // ==========================================================================
   const boot = async () => {
     document.body.classList.add('is-loaded');
     setYear();
@@ -1664,14 +1796,14 @@
     const page = document.body.dataset.page;
     try {
       if (page === 'home') await initHome();
-      if (page === 'catalog') await initCatalog();
-      if (page === 'details') await initDetails();
-      if (page === 'contact') await initContact();
-      if (page === 'about') await initAbout();
-      if (page === 'admin-login') await initAdminLogin();
-      if (page === 'admin-dashboard') await initAdminDashboard();
+      else if (page === 'catalog') await initCatalog();
+      else if (page === 'details') await initDetails();
+      else if (page === 'contact') await initContact();
+      else if (page === 'about') await initAbout();
+      else if (page === 'admin-login') await initAdminLogin();
+      else if (page === 'admin-dashboard') await initAdminDashboard();
     } catch (err) {
-      console.warn(err);
+      console.warn('Page initialization error:', err);
     }
   };
 

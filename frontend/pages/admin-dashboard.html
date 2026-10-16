@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Monginis admin dashboard" />
+  <meta name="description" content="Admin Dashboard — Monginis (The Celebration Bakers)" />
   <title>Admin Dashboard — Monginis</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="../style.css" />
 </head>
@@ -19,16 +19,17 @@
   </div>
 
   <header class="topbar">
-    <nav class="nav" aria-label="Admin">
+    <nav class="nav" aria-label="Admin Navigation">
       <a class="brand" href="../index.html" aria-label="Monginis Home">
         <img class="brand-logo" src="../assets/logo.png" alt="Monginis logo" loading="eager" onerror="this.onerror=null;this.src='../assets/logo-placeholder.svg'" />
         <span class="brand-text">
           <span class="brand-name">Monginis</span>
-          <span class="brand-tag">Admin Dashboard</span>
+          <span class="brand-tag">Admin Management</span>
         </span>
       </a>
-      <div class="nav-links admin-links">
-        <button class="btn ghost" id="logoutBtn" type="button"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+      <div class="nav-links admin-links" style="display:flex; gap:10px;">
+        <a class="btn ghost btn-sm" href="../catalog.html" target="_blank"><i class="fa-solid fa-eye"></i> View Live Catalog</a>
+        <button class="btn danger btn-sm" id="logoutBtn" type="button"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
       </div>
     </nav>
   </header>
@@ -38,44 +39,69 @@
       <div class="panel">
         <div class="admin-bar">
           <div>
-            <h1 class="h1 mb-6">Owner Controls</h1>
-            <p class="sub">Manage categories, cakes, images, shop info, and view likes/dislikes analytics.</p>
+            <span class="detail-kicker">Owner Control Center</span>
+            <h1 class="h1" style="margin: 6px 0 8px;">Bakery Management Dashboard</h1>
+            <p class="sub">Manage categories, cake designs, image galleries, shop contact details, and view customer engagement.</p>
           </div>
-          <a class="btn ghost" href="../catalog.html"><i class="fa-solid fa-eye"></i> View catalog</a>
         </div>
       </div>
     </section>
 
-    <section class="section" aria-label="Analytics">
+    <!-- Analytics Section -->
+    <section class="section" aria-label="Customer Engagement Analytics">
       <div class="panel">
         <div class="section-head">
-          <h2 class="h2"><i class="fa-solid fa-chart-line icon-pink"></i> Analytics</h2>
-          <div class="muted">Likes & dislikes (all cakes)</div>
+          <div>
+            <h2 class="h2"><i class="fa-solid fa-chart-line icon-pink"></i> Customer Reactions</h2>
+            <div class="muted tiny">Real-time engagement across all catalog items</div>
+          </div>
         </div>
         <div class="grid two">
-          <div class="row"><div class="row-head"><div class="row-title">Total Likes</div><small id="anaLikes">0</small></div></div>
-          <div class="row"><div class="row-head"><div class="row-title">Total Dislikes</div><small id="anaDislikes">0</small></div></div>
+          <div class="row" style="background:var(--like-bg); border-color:rgba(5,150,105,0.2);">
+            <div class="row-head">
+              <div>
+                <div class="row-title" style="color:var(--like);"><i class="fa-solid fa-heart"></i> Total Cake Loves</div>
+                <div class="tiny muted">Positive customer feedback</div>
+              </div>
+              <div id="anaLikes" style="font-size:32px;font-weight:900;color:var(--like);">0</div>
+            </div>
+          </div>
+          <div class="row" style="background:var(--dislike-bg); border-color:rgba(225,29,72,0.2);">
+            <div class="row-head">
+              <div>
+                <div class="row-title" style="color:var(--dislike);"><i class="fa-solid fa-thumbs-down"></i> Total Dislikes</div>
+                <div class="tiny muted">Feedback to improve</div>
+              </div>
+              <div id="anaDislikes" style="font-size:32px;font-weight:900;color:var(--dislike);">0</div>
+            </div>
+          </div>
         </div>
-        <div class="table mt-14" id="anaTop"></div>
+        <div class="table" style="margin-top: 18px;">
+          <div class="tiny muted" style="font-weight:800;text-transform:uppercase;">Top Performing Designs</div>
+          <div id="anaTop"></div>
+        </div>
       </div>
     </section>
 
-    <section class="section" aria-label="Categories">
+    <!-- Category Management Section -->
+    <section class="section" aria-label="Category Management">
       <div class="panel">
         <div class="section-head">
-          <h2 class="h2"><i class="fa-solid fa-tags icon-pink"></i> Categories</h2>
-          <div class="muted">Dynamic categories appear on the catalog filter.</div>
+          <div>
+            <h2 class="h2"><i class="fa-solid fa-tags icon-pink"></i> Category Management</h2>
+            <div class="muted tiny">Categories dynamically populate the catalog filter pills and navigation</div>
+          </div>
         </div>
 
         <form class="form" id="catCreateForm">
           <div class="grid two">
             <div class="field">
-              <label for="newCatName">New category name</label>
-              <input class="input" id="newCatName" placeholder="Birthday Cakes" required />
+              <label for="newCatName">New Category Name</label>
+              <input class="input" id="newCatName" placeholder="e.g. Birthday Theme Cakes, Tier Wedding Cakes" required />
             </div>
             <div class="field">
               <label>&nbsp;</label>
-              <button class="btn primary" type="submit"><i class="fa-solid fa-plus"></i> Create</button>
+              <button class="btn primary" type="submit"><i class="fa-solid fa-plus"></i> Create Category</button>
             </div>
           </div>
         </form>
@@ -84,77 +110,84 @@
       </div>
     </section>
 
-    <section class="section" aria-label="Create cake">
+    <!-- Create Single Cake Section -->
+    <section class="section" aria-label="Create New Cake Design">
       <div class="panel">
         <div class="section-head">
-          <h2 class="h2"><i class="fa-solid fa-cake-candles icon-pink"></i> Create Cake</h2>
-          <div class="muted">Upload multiple images, then create the cake.</div>
+          <div>
+            <h2 class="h2"><i class="fa-solid fa-cake-candles icon-pink"></i> Add New Cake Design</h2>
+            <div class="muted tiny">Upload gallery images and publish a new design to the digital catalog</div>
+          </div>
         </div>
 
         <form class="form" id="cakeCreateForm">
           <div class="grid two">
             <div class="field">
-              <label for="createCakeName">Cake name</label>
-              <input class="input" id="createCakeName" placeholder="Chocolate Truffle" required />
+              <label for="createCakeName">Cake Name</label>
+              <input class="input" id="createCakeName" placeholder="e.g. Belgian Royal Truffle" required />
             </div>
             <div class="field">
               <label for="createCakeCategory">Category</label>
               <select class="input categorySelect" id="createCakeCategory" required>
-                <option value="">Select category</option>
+                <option value="">Select Category</option>
               </select>
             </div>
           </div>
 
           <div class="field">
-            <label for="createCakeDesc">Description (optional)</label>
-            <textarea class="input" id="createCakeDesc" rows="3" placeholder="Short premium description…"></textarea>
+            <label for="createCakeDesc">Description (Optional)</label>
+            <textarea class="input" id="createCakeDesc" rows="3" placeholder="Artisanal chocolate sponge with dark ganache..."></textarea>
           </div>
 
           <div class="grid two">
             <div class="field">
-              <label for="createCakeFiles">Upload images (multiple)</label>
+              <label for="createCakeFiles">Upload Images (Portrait 9:16 recommended)</label>
               <input class="input" id="createCakeFiles" type="file" accept="image/*" multiple />
-              <div class="muted tiny" id="createUploadedLabel">No uploads yet</div>
+              <div class="tiny muted" id="createUploadedLabel" style="font-weight:700;">No images uploaded yet</div>
             </div>
             <div class="field">
               <label>&nbsp;</label>
-              <button class="btn primary" id="createUploadBtn" type="button"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+              <button class="btn primary" id="createUploadBtn" type="button"><i class="fa-solid fa-cloud-arrow-up"></i> Upload Images to Cloudinary</button>
             </div>
           </div>
 
-          <button class="btn primary" type="submit"><i class="fa-solid fa-check"></i> Create cake</button>
+          <button class="btn primary" type="submit" style="margin-top: 10px;"><i class="fa-solid fa-check"></i> Save &amp; Publish Cake</button>
         </form>
       </div>
     </section>
 
-    <section class="section" aria-label="Bulk upload cakes">
+    <!-- Bulk Upload Section -->
+    <section class="section" aria-label="Bulk Upload Cakes">
       <div class="panel">
         <div class="section-head">
-          <h2 class="h2"><i class="fa-solid fa-cloud-arrow-up icon-pink"></i> Bulk Upload Cakes</h2>
-          <div class="muted">Upload 20–30 cakes at once with auto naming and category folders.</div>
+          <div>
+            <h2 class="h2"><i class="fa-solid fa-images icon-pink"></i> Bulk Image Upload</h2>
+            <div class="muted tiny">Upload 20–30 cake photos at once with automatic numbering and category assignment</div>
+          </div>
         </div>
 
         <form class="form" id="bulkUploadForm">
           <div class="grid two">
             <div class="field">
-              <label for="bulkCategory">Category</label>
+              <label for="bulkCategory">Select Target Category</label>
               <select class="input categorySelect" id="bulkCategory" required>
-                <option value="">Select category</option>
+                <option value="">Select Category</option>
               </select>
             </div>
             <div class="field">
-              <label for="bulkFiles">Upload images (20–30)</label>
+              <label for="bulkFiles">Select Cake Photos (Up to 30 files)</label>
               <input class="input" id="bulkFiles" type="file" accept="image/*" multiple />
-              <div class="muted tiny" id="bulkFilesHint">No files selected</div>
+              <div class="tiny muted" id="bulkFilesHint" style="font-weight:700;">No files selected</div>
             </div>
           </div>
 
+          <!-- Real-time Progress Bar -->
           <div class="bulk-progress" id="bulkProgress" hidden>
             <div class="bulk-progress-head">
               <div class="bulk-spinner" aria-hidden="true"></div>
               <div>
-                <div class="bulk-status" id="bulkStatus">Preparing upload…</div>
-                <div class="bulk-counts" id="bulkCounts">Uploading 0 / 0 images…</div>
+                <div class="bulk-status" id="bulkStatus">Preparing files…</div>
+                <div class="bulk-counts" id="bulkCounts">Processing 0 / 0 images…</div>
               </div>
             </div>
             <div class="bulk-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -167,34 +200,39 @@
             </div>
           </div>
 
-          <button class="btn primary" id="bulkUploadBtn" type="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Start bulk upload</button>
+          <button class="btn primary" id="bulkUploadBtn" type="submit" style="margin-top: 10px;">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Start Bulk Upload
+          </button>
         </form>
 
-        <div class="bulk-results" id="bulkResults" hidden>
+        <div class="bulk-results" id="bulkResults" hidden style="margin-top: 24px;">
           <div class="section-head">
-            <h3 class="h2">Uploaded Cakes</h3>
-            <div class="muted" id="bulkSummary">Ready</div>
+            <h3 class="h2" style="font-size: 20px;">Newly Created Cakes</h3>
+            <div class="muted tiny" id="bulkSummary">Ready</div>
           </div>
           <div class="cake-grid" id="bulkGrid"></div>
         </div>
       </div>
     </section>
 
-    <section class="section" aria-label="Manage cakes">
+    <!-- Manage Existing Cakes Section -->
+    <section class="section" aria-label="Manage Cakes">
       <div class="panel">
         <div class="section-head">
-          <h2 class="h2"><i class="fa-solid fa-gear icon-pink"></i> Manage Cakes</h2>
-          <div class="muted">Edit details, add/delete images, delete cakes.</div>
+          <div>
+            <h2 class="h2"><i class="fa-solid fa-gear icon-pink"></i> Manage Existing Cakes</h2>
+            <div class="muted tiny">Search, edit names, descriptions, categories, or delete designs</div>
+          </div>
         </div>
         <div class="filter-bar">
           <div class="field">
-            <label for="adminCakeSearch">Search cakes</label>
-            <input class="input" id="adminCakeSearch" placeholder="Search by cake name" />
+            <label for="adminCakeSearch">Search By Cake Name</label>
+            <input class="input" id="adminCakeSearch" placeholder="Type cake name to filter…" />
           </div>
           <div class="field">
-            <label for="adminCakeCategory">Filter category</label>
+            <label for="adminCakeCategory">Filter By Category</label>
             <select class="input categorySelect" id="adminCakeCategory" data-all-option="1">
-              <option value="">All categories</option>
+              <option value="">All Categories</option>
             </select>
           </div>
         </div>
@@ -202,45 +240,80 @@
       </div>
     </section>
 
-    <section class="section" aria-label="Shop info">
+    <!-- Shop Info Editor Section -->
+    <section class="section" aria-label="Shop Information Settings">
       <div class="panel">
         <div class="section-head">
-          <h2 class="h2"><i class="fa-solid fa-store icon-pink"></i> Shop Info & Social Links</h2>
-          <div class="muted">Used across Contact and WhatsApp buttons.</div>
+          <div>
+            <h2 class="h2"><i class="fa-solid fa-store icon-pink"></i> Shop Information &amp; Social Links</h2>
+            <div class="muted tiny">Updated information applies across all headers, footers, and WhatsApp ordering links</div>
+          </div>
         </div>
 
         <form class="form" id="shopForm">
-          <div class="field"><label for="shopAddress">Address</label><input class="input" id="shopAddress" placeholder="Shop address" /></div>
-          <div class="grid two">
-            <div class="field"><label for="shopPhone">Phone</label><input class="input" id="shopPhone" placeholder="+91…" /></div>
-            <div class="field"><label for="shopEmail">Email</label><input class="input" id="shopEmail" placeholder="hello@monginis.com" /></div>
+          <div class="field">
+            <label for="shopAddress">Physical Outlet Address</label>
+            <input class="input" id="shopAddress" placeholder="e.g. Monginis Cake Shop, Beed Bypass, Near Nishant Park Hotel, CSN" />
           </div>
-          <div class="field"><label for="shopHours">Opening hours</label><input class="input" id="shopHours" placeholder="Daily 10:00 AM – 9:00 PM" /></div>
-
           <div class="grid two">
-            <div class="field"><label for="shopWhatsapp">WhatsApp number (with country code)</label><input class="input" id="shopWhatsapp" placeholder="9199…" /></div>
-            <div class="field"><label for="shopInstagram">Instagram URL</label><input class="input" id="shopInstagram" placeholder="https://instagram.com/..." /></div>
+            <div class="field">
+              <label for="shopPhone">Contact Phone Number</label>
+              <input class="input" id="shopPhone" placeholder="9613661155" />
+            </div>
+            <div class="field">
+              <label for="shopEmail">Customer Email Address</label>
+              <input class="input" id="shopEmail" placeholder="kaizenservice1@gmail.com" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="shopHours">Opening &amp; Closing Hours</label>
+            <input class="input" id="shopHours" placeholder="Daily 10:00 AM – 9:00 PM" />
           </div>
 
           <div class="grid two">
-            <div class="field"><label for="shopFacebook">Facebook URL</label><input class="input" id="shopFacebook" placeholder="https://facebook.com/..." /></div>
-            <div class="field"><label for="shopMaps">Google Maps URL</label><input class="input" id="shopMaps" placeholder="https://maps.app.goo.gl/..." /></div>
+            <div class="field">
+              <label for="shopWhatsapp">WhatsApp Order Number (with Country Code e.g. 919613661155)</label>
+              <input class="input" id="shopWhatsapp" placeholder="919613661155" />
+            </div>
+            <div class="field">
+              <label for="shopInstagram">Instagram Profile URL</label>
+              <input class="input" id="shopInstagram" placeholder="https://instagram.com/monginis_celebration" />
+            </div>
           </div>
 
-          <div class="field"><label for="shopReviews">Google Reviews URL</label><input class="input" id="shopReviews" placeholder="https://g.page/r/..." /></div>
+          <div class="grid two">
+            <div class="field">
+              <label for="shopFacebook">Facebook Page URL</label>
+              <input class="input" id="shopFacebook" placeholder="https://facebook.com/monginis_celebration" />
+            </div>
+            <div class="field">
+              <label for="shopMaps">Google Maps Share URL</label>
+              <input class="input" id="shopMaps" placeholder="https://maps.app.goo.gl/..." />
+            </div>
+          </div>
 
-          <button class="btn primary" type="submit"><i class="fa-solid fa-check"></i> Save shop info</button>
+          <div class="field">
+            <label for="shopReviews">Google Reviews Page URL</label>
+            <input class="input" id="shopReviews" placeholder="https://g.page/r/..." />
+          </div>
+
+          <button class="btn primary" type="submit" style="margin-top: 10px;">
+            <i class="fa-solid fa-check"></i> Save Shop Settings
+          </button>
         </form>
       </div>
     </section>
 
-    <section class="section">
+    <footer class="footer">
       <div class="footer-inner">
-        <div class="muted">© Sarang Chavan</div>
+        <div class="footer-meta" style="border:none;padding:0;">
+          <div class="tiny muted">Monginis Digital Catalog Owner Admin Portal</div>
+          <div class="tiny muted">© <span class="year-now"></span> Sarang Chavan. All rights reserved.</div>
+        </div>
       </div>
-    </section>
+    </footer>
 
-    <div class="panel admin-toast" id="adminToast" hidden>Saved</div>
+    <div class="admin-toast" id="adminToast" hidden>Operation successful</div>
   </main>
 
   <script src="../script.js"></script>

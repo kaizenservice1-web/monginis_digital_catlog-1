@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Monginis admin login" />
-  <title>Admin Login — Monginis</title>
+  <meta name="description" content="Secure Admin Login — Monginis (The Celebration Bakers)" />
+  <title>Admin Portal Login — Monginis</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="../style.css" />
 </head>
@@ -20,30 +20,36 @@
 
   <main class="auth-wrap">
     <div class="panel auth-card">
-      <div class="footer-brand center">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 24px; text-align: center;">
         <img class="footer-logo" src="../assets/logo.png" alt="Monginis logo" loading="eager" onerror="this.onerror=null;this.src='../assets/logo-placeholder.svg'" />
-        <div>
-          <div class="footer-name">Admin Login</div>
-          <div class="footer-tag">You Dream it, We Bake it</div>
+        <div style="text-align: left;">
+          <div class="footer-name">Admin Portal</div>
+          <div class="footer-tag">Monginis — The Celebration Bakers</div>
         </div>
       </div>
 
       <form class="form" id="adminLoginForm" autocomplete="on">
         <div class="field">
-          <label for="adminEmail">Email</label>
+          <label for="adminEmail">Owner Email Address</label>
           <input class="input" id="adminEmail" type="email" autocomplete="username" placeholder="owner@monginis.com" required />
         </div>
         <div class="field">
           <label for="adminPassword">Password</label>
           <input class="input" id="adminPassword" type="password" autocomplete="current-password" placeholder="••••••••" required />
         </div>
-        <button class="btn primary" id="adminLoginBtn" type="submit"><i class="fa-solid fa-lock"></i> Sign In</button>
-        <div class="muted" id="adminMsg">Owner access only. Use the email set as owner.</div>
-        <a class="btn ghost" href="../index.html"><i class="fa-solid fa-arrow-left"></i> Back to website</a>
+        <button class="btn primary" id="adminLoginBtn" type="submit" style="margin-top: 6px;">
+          <i class="fa-solid fa-lock"></i> Sign In to Dashboard
+        </button>
+        <div class="tiny muted" id="adminMsg" style="text-align: center; margin-top: 4px;">
+          Authorized owner access only.
+        </div>
+        <a class="btn ghost btn-sm" href="../index.html" style="margin-top: 10px;">
+          <i class="fa-solid fa-arrow-left"></i> Return to Main Website
+        </a>
       </form>
 
-      <div class="footer-meta mt-14">
-        <div class="muted">© Sarang Chavan</div>
+      <div class="footer-meta" style="margin-top: 24px; justify-content: center;">
+        <div class="tiny muted">© <span class="year-now"></span> Sarang Chavan. All rights reserved.</div>
       </div>
     </div>
   </main>
