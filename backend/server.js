@@ -51,11 +51,11 @@ app.use(cors({
     if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       return callback(null, true);
     }
-    // Also allow preview Vercel deployments (*.vercel.app)
-    if (/^https:\/\/monginis-[a-z0-9-]+-.*\.vercel\.app$/.test(origin)) {
+    // Allow only the project's Vercel deployments, not arbitrary origins.
+    if (/^https:\/\/monginis-digital-catlog-1(?:-[a-z0-9-]+)?\.vercel\.app$/.test(origin)) {
       return callback(null, true);
     }
-    return callback(null, true); // Permissive fallback to ensure catalog access is never blocked
+    return callback(new Error('Origin not allowed by CORS'));
   },
   credentials: true,
 }));
