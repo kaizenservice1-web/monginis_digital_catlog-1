@@ -67,6 +67,10 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, service: 'monginis-backend', time: new Date().toISOString() });
 });
 
+app.get('/', (req, res) => {
+  res.status(200).json({ ok: true, service: 'monginis-backend' });
+});
+
 // All remaining /api endpoints require MongoDB.
 // When Atlas IP whitelist blocks access (or URI is missing), return a clear 503 instead of hanging.
 app.use('/api', (req, res, next) => {

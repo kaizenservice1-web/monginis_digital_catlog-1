@@ -48,6 +48,7 @@ app.use(
 );
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
+app.get("/", (req, res) => res.status(200).json({ ok: true, service: "monginis-backend" }));
 
 app.use("/api/admin", authRoutes);
 app.use("/api", cakeRoutes);

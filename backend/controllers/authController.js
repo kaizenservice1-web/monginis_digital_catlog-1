@@ -43,14 +43,45 @@ const configuredAccounts = [
   },
 ];
 
+const getAccountConfiguration = (account) => {
+  const email = String(
+    process.env[account.emailEnv] || process.env[account.legacyEmailEnv] || account.defaultEmail || ''
+  ).toLowerCase().trim();
+  const password = process.env[account.passwordEnv] || process.env[account.legacyPasswordEnv] || '';
+  const passwordHash = process.env[account.passwordHashEnv]
+    || process.env[account.legacyPasswordHashEnv]
+    || '';
+
+  return { email, password, passwordHash };
+};
+
+const validateSeedConfiguration = () => {
+  const missing = [];
+
+  configuredAccounts.forEach((account) => {
+    const config = getAccountConfiguration(account);
+    if (!config.email) missing.push(account.emailEnv);
+    if (!config.password && !config.passwordHash) {
+      missing.push(`${account.passwordEnv} or ${account.passwordHashEnv}`);
+    }
+  });
+
+  if (missing.length) {
+    console.warn(
+      `Initial authentication account seeding is incomplete. Missing configuration: ${missing.join(', ')}. `
+      + 'No password values or hashes are logged. Configure these variables before expecting login to work.'
+    );
+  }
+
+  return missing;
+};
+
 const ensureInitialAdmin = async () => {
+  validateSeedConfiguration();
+
   for (const account of configuredAccounts) {
-    const configuredEmail = process.env[account.emailEnv] || process.env[account.legacyEmailEnv];
-    const email = String(configuredEmail || account.defaultEmail).toLowerCase().trim();
-    const configuredHash = process.env[account.passwordHashEnv]
-      || process.env[account.legacyPasswordHashEnv]
-      || '';
-    const password = process.env[account.passwordEnv] || process.env[account.legacyPasswordEnv];
+    const { email, password, passwordHash: configuredHash } = getAccountConfiguration(account);
+    if (!email) continue;
     const existing = await Admin.findOne({ email });
 
     if (existing) {
@@ -68,7 +99,6 @@ const ensureInitialAdmin = async () => {
     }
 
     if (!configuredHash && !password) {
-      console.warn(`${account.passwordEnv} is not set; skipping ${account.role} account seed.`);
       continue;
     }
 
@@ -167,6 +197,7 @@ module.exports = {
   ownerLogin,
   employeeLogin,
   ensureInitialAdmin,
+  validateSeedConfiguration,
   listActiveEmployees,
   selectEmployeeProfile,
 };
