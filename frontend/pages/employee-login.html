@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Employee Portal — Monginis</title>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="../style.css" />
+</head>
+<body data-page="employee-login">
+  <main class="auth-wrap">
+    <div class="panel auth-card">
+      <h1 class="h1">Employee Portal</h1>
+      <p class="sub">Sign in with the shared team account, then select your employee profile.</p>
+      <form class="form portal-login-form" id="employeeLoginForm">
+        <div class="field"><label for="employeeEmail">Team Email</label><input class="input" id="employeeEmail" type="email" autocomplete="username" required /></div>
+        <div class="field"><label for="employeePassword">Password</label><input class="input" id="employeePassword" type="password" autocomplete="current-password" required /></div>
+        <button class="btn primary" id="employeeLoginBtn" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Continue</button>
+        <div class="tiny muted" id="employeeMsg">Employee profile selection is an operational identification step.</div>
+        <a class="btn ghost portal-switch-btn" href="admin-login.html"><i class="fa-solid fa-lock"></i> Owner Login</a>
+      </form>
+    </div>
+  </main>
+  <script src="../script.js"></script>
+</body>
+</html>

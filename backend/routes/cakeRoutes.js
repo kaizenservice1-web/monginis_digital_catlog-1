@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 const {
   listCakes,
   getCake,
@@ -36,18 +36,18 @@ const bulkUpload = multer({
 // /api/cakes
 router.get('/cakes', listCakes);
 router.get('/cakes/:id', getCake);
-router.post('/cakes', authMiddleware, createCake);
-router.patch('/cakes/:id', authMiddleware, updateCake);
-router.delete('/cakes/:id', authMiddleware, deleteCake);
+router.post('/cakes', authMiddleware, requireRole('owner'), createCake);
+router.patch('/cakes/:id', authMiddleware, requireRole('owner'), updateCake);
+router.delete('/cakes/:id', authMiddleware, requireRole('owner'), deleteCake);
 
 // /api/upload
-router.post('/upload', authMiddleware, upload.array('images', 30), uploadImages);
+router.post('/upload', authMiddleware, requireRole('owner'), upload.array('images', 30), uploadImages);
 
 // /api/cakes/bulk
-router.post('/cakes/bulk', authMiddleware, bulkUpload.array('images', 30), bulkUploadCakes);
+router.post('/cakes/bulk', authMiddleware, requireRole('owner'), bulkUpload.array('images', 30), bulkUploadCakes);
 
 // /api/delete
-router.post('/delete', authMiddleware, deleteImage);
+router.post('/delete', authMiddleware, requireRole('owner'), deleteImage);
 
 // /api/like
 router.post('/like', likeCake);

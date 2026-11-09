@@ -6,7 +6,6 @@ const morgan = require("morgan");
 const authRoutes = require("./routes/authRoutes");
 const cakeRoutes = require("./routes/cakeRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
-const uploadRoutes = require("./routes/uploadRoutes");
 const shopRoutes = require("./routes/shopRoutes");
 
 const app = express();
@@ -50,10 +49,9 @@ app.use(
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-app.use("/api", authRoutes);
+app.use("/api/admin", authRoutes);
 app.use("/api", cakeRoutes);
 app.use("/api", categoryRoutes);
-app.use("/api", uploadRoutes);
 app.use("/api", shopRoutes);
 
 app.use((req, res) => {

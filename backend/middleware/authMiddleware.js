@@ -10,11 +10,30 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.admin = { id: payload.sub, email: payload.email };
+    req.auth = {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      selectedEmployeeId: payload.selectedEmployeeId || null,
+    };
     return next();
   } catch {
     return res.status(401).json({ message: 'Invalid token' });
   }
 };
 
-module.exports = { authMiddleware };
+const requireRole = (...roles) => (req, res, next) => {
+  if (!req.auth || !roles.includes(req.auth.role)) {
+    return res.status(403).json({ message: 'Insufficient permissions' });
+  }
+  return next();
+};
+
+const requireSelectedEmployee = (req, res, next) => {
+  if (req.auth?.role !== 'employee' || !req.auth.selectedEmployeeId) {
+    return res.status(403).json({ message: 'Select an employee profile first' });
+  }
+  return next();
+};
+
+module.exports = { authMiddleware, requireRole, requireSelectedEmployee };
