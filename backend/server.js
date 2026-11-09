@@ -76,9 +76,7 @@ app.get('/', (req, res) => {
 app.use('/api', (req, res, next) => {
   if (
     req.originalUrl === '/api/admin/login' ||
-    req.originalUrl.startsWith('/api/admin/login?') ||
-    req.originalUrl === '/api/admin/owner/login' ||
-    req.originalUrl === '/api/admin/employee/login'
+    req.originalUrl.startsWith('/api/admin/login?')
   ) {
     return next();
   }

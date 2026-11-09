@@ -134,128 +134,6 @@
     });
   };
 
-  const employeeTokenKey = 'monginis_employee_token';
-  const getEmployeeToken = () => localStorage.getItem(employeeTokenKey);
-  const employeeAuthedFetch = (path, opts = {}) => jsonFetch(path, {
-    ...opts,
-    headers: {
-      ...(opts.headers || {}),
-      Authorization: getEmployeeToken() ? `Bearer ${getEmployeeToken()}` : '',
-    },
-  });
-
-  const initEmployeeLogin = async () => {
-    const form = $('#employeeLoginForm');
-    const msg = $('#employeeMsg');
-    const btn = $('#employeeLoginBtn');
-    if (!form) return;
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = String($('#employeeEmail')?.value || '').trim();
-      const password = String($('#employeePassword')?.value || '');
-      if (!email || !password) {
-        if (msg) msg.textContent = 'Please enter both email and password.';
-        return;
-      }
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Signing In…';
-      }
-      try {
-        const out = await jsonFetch('/api/admin/employee/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        localStorage.setItem(employeeTokenKey, out.token);
-        location.href = 'employee-select.html';
-      } catch (err) {
-        if (msg) msg.textContent = err.message || 'Login failed.';
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Continue';
-        }
-      }
-    });
-  };
-
-  const initEmployeeSelect = async () => {
-    const token = getEmployeeToken();
-    if (!token) {
-      location.href = 'employee-login.html';
-      return;
-    }
-
-    const grid = $('#employeeProfiles');
-    const msg = $('#employeeSelectMsg');
-    const logout = $('#employeeLogoutBtn');
-    if (logout) logout.addEventListener('click', () => {
-      localStorage.removeItem(employeeTokenKey);
-      location.href = 'employee-login.html';
-    });
-
-    try {
-      const out = await employeeAuthedFetch('/api/admin/employee/profiles');
-      const employees = Array.isArray(out.employees) ? out.employees : [];
-      if (!employees.length) {
-        if (grid) grid.innerHTML = '<div class="empty"><h2 class="h2">No active employee profiles yet</h2><p class="muted">Ask the owner to add your profile.</p></div>';
-        return;
-      }
-      if (grid) {
-        grid.innerHTML = employees.map((employee) => `
-          <button class="panel profile-card" type="button" data-employee-id="${escapeAttr(employee._id)}">
-            <strong>${escapeHtml(employee.fullName)}</strong>
-            <span class="muted">${escapeHtml(employee.designation || 'Team member')}</span>
-          </button>
-        `).join('');
-        $$('.profile-card', grid).forEach((card) => card.addEventListener('click', async () => {
-          card.disabled = true;
-          try {
-            const selected = await employeeAuthedFetch('/api/admin/employee/select-profile', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ employeeId: card.dataset.employeeId }),
-            });
-            localStorage.setItem(employeeTokenKey, selected.token);
-            location.href = 'employee-dashboard.html';
-          } catch (err) {
-            if (msg) msg.textContent = err.message || 'Unable to select profile.';
-            card.disabled = false;
-          }
-        }));
-      }
-    } catch (err) {
-      if (msg) msg.textContent = err.message || 'Unable to load employee profiles.';
-    }
-  };
-
-  const initEmployeeDashboard = async () => {
-    if (!getEmployeeToken()) {
-      location.href = 'employee-login.html';
-      return;
-    }
-    $('#employeeLogoutBtn')?.addEventListener('click', () => {
-      localStorage.removeItem(employeeTokenKey);
-      location.href = 'employee-login.html';
-    });
-    $('#switchProfileBtn')?.addEventListener('click', () => {
-      location.href = 'employee-select.html';
-    });
-    try {
-      const out = await employeeAuthedFetch('/api/admin/employee/profiles');
-      const selectedId = JSON.parse(atob(getEmployeeToken().split('.')[1])).selectedEmployeeId;
-      const employee = (out.employees || []).find((item) => item._id === selectedId);
-      if (!employee) throw new Error('Selected profile is no longer active.');
-      $('#employeeName').textContent = employee.fullName;
-      $('#employeeDesignation').textContent = employee.designation || 'Team member';
-    } catch (err) {
-      localStorage.removeItem(employeeTokenKey);
-      location.href = 'employee-select.html';
-    }
-  };
-
   const setYear = () => {
     $$('#year, .year-now').forEach(el => {
       el.textContent = new Date().getFullYear();
@@ -1934,9 +1812,6 @@
       else if (page === 'about') await initAbout();
       else if (page === 'admin-login') await initAdminLogin();
       else if (page === 'admin-dashboard') await initAdminDashboard();
-      else if (page === 'employee-login') await initEmployeeLogin();
-      else if (page === 'employee-select') await initEmployeeSelect();
-      else if (page === 'employee-dashboard') await initEmployeeDashboard();
     } catch (err) {
       console.warn('Page initialization error:', err);
     }

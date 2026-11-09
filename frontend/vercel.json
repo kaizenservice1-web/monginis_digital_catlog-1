@@ -7,10 +7,7 @@
     { "source": "/social", "destination": "/social.html" },
     { "source": "/cake-details", "destination": "/cake-details.html" },
     { "source": "/pages/admin-login", "destination": "/pages/admin-login.html" },
-    { "source": "/pages/admin-dashboard", "destination": "/pages/admin-dashboard.html" },
-    { "source": "/pages/employee-login", "destination": "/pages/employee-login.html" },
-    { "source": "/pages/employee-select", "destination": "/pages/employee-select.html" },
-    { "source": "/pages/employee-dashboard", "destination": "/pages/employee-dashboard.html" }
+    { "source": "/pages/admin-dashboard", "destination": "/pages/admin-dashboard.html" }
   ],
   "headers": [
     {

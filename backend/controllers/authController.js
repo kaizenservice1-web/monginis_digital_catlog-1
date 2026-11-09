@@ -1,9 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-
 const Admin = require('../models/Admin');
-const Employee = require('../models/Employee');
 
 const getSecret = () => {
   if (!process.env.JWT_SECRET) {
@@ -14,190 +12,65 @@ const getSecret = () => {
   return process.env.JWT_SECRET;
 };
 
-const signToken = ({ id, email, role, selectedEmployeeId = null }) => jwt.sign(
-  { email, role, selectedEmployeeId },
+const signToken = (admin) => jwt.sign(
+  { email: admin.email },
   getSecret(),
   {
-    subject: String(id),
+    subject: String(admin._id),
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   }
 );
 
-const configuredAccounts = [
-  {
-    emailEnv: 'OWNER_EMAIL',
-    passwordEnv: 'OWNER_PASSWORD',
-    passwordHashEnv: 'OWNER_PASSWORD_HASH',
-    legacyEmailEnv: 'ADMIN_EMAIL',
-    legacyPasswordEnv: 'ADMIN_PASSWORD',
-    legacyPasswordHashEnv: 'ADMIN_PASSWORD_HASH',
-    defaultEmail: 'monginis96@gmail.com',
-    role: 'owner',
-  },
-  {
-    emailEnv: 'EMPLOYEE_LOGIN_EMAIL',
-    passwordEnv: 'EMPLOYEE_LOGIN_PASSWORD',
-    passwordHashEnv: 'EMPLOYEE_LOGIN_PASSWORD_HASH',
-    defaultEmail: 'employee2121@mail.com',
-    role: 'employee',
-  },
-];
-
-const getAccountConfiguration = (account) => {
-  const email = String(
-    process.env[account.emailEnv] || process.env[account.legacyEmailEnv] || account.defaultEmail || ''
-  ).toLowerCase().trim();
-  const password = process.env[account.passwordEnv] || process.env[account.legacyPasswordEnv] || '';
-  const passwordHash = process.env[account.passwordHashEnv]
-    || process.env[account.legacyPasswordHashEnv]
-    || '';
-
-  return { email, password, passwordHash };
-};
+const getAdminEmail = () => String(process.env.ADMIN_EMAIL || '').toLowerCase().trim();
 
 const validateSeedConfiguration = () => {
   const missing = [];
-
-  configuredAccounts.forEach((account) => {
-    const config = getAccountConfiguration(account);
-    if (!config.email) missing.push(account.emailEnv);
-    if (!config.password && !config.passwordHash) {
-      missing.push(`${account.passwordEnv} or ${account.passwordHashEnv}`);
-    }
-  });
-
+  if (!getAdminEmail()) missing.push('ADMIN_EMAIL');
+  if (!process.env.ADMIN_PASSWORD_HASH && !process.env.ADMIN_PASSWORD) {
+    missing.push('ADMIN_PASSWORD_HASH or ADMIN_PASSWORD');
+  }
   if (missing.length) {
     console.warn(
-      `Initial authentication account seeding is incomplete. Missing configuration: ${missing.join(', ')}. `
-      + 'No password values or hashes are logged. Configure these variables before expecting login to work.'
+      `Initial admin account seeding is incomplete. Missing configuration: ${missing.join(', ')}.`
     );
   }
-
   return missing;
 };
 
 const ensureInitialAdmin = async () => {
   validateSeedConfiguration();
+  const email = getAdminEmail();
+  if (!email) return;
 
-  for (const account of configuredAccounts) {
-    const { email, password, passwordHash: configuredHash } = getAccountConfiguration(account);
-    if (!email) continue;
-    const existing = await Admin.findOne({ email });
+  const existing = await Admin.findOne({ email });
+  if (existing) return;
 
-    if (existing) {
-      const forceReset = ['1', 'true', 'yes', 'on'].includes(
-        String(process.env.AUTH_FORCE_RESET || '').toLowerCase()
-      );
-      if (existing.role !== account.role || (forceReset && (configuredHash || password))) {
-        existing.role = account.role;
-        if (forceReset) {
-          existing.passwordHash = configuredHash || await bcrypt.hash(String(password), 10);
-        }
-        await existing.save();
-      }
-      continue;
-    }
-
-    if (!configuredHash && !password) {
-      continue;
-    }
-
-    await Admin.create({
-      email,
-      passwordHash: configuredHash || await bcrypt.hash(String(password), 10),
-      role: account.role,
-    });
-  }
+  const passwordHash = process.env.ADMIN_PASSWORD_HASH
+    || await bcrypt.hash(String(process.env.ADMIN_PASSWORD), 10);
+  await Admin.create({ email, passwordHash });
 };
 
-const login = async (req, res, expectedRole = null) => {
-  const { email, password } = req.body || {};
-  const normalizedEmail = String(email || '').toLowerCase().trim();
-  const pw = String(password || '');
-
-  if (!normalizedEmail || !pw) {
+const login = async (req, res) => {
+  const email = String(req.body?.email || '').toLowerCase().trim();
+  const password = String(req.body?.password || '');
+  if (!email || !password) {
     return res.status(400).json({ message: 'Email and password required' });
   }
 
-  const accountConfig = configuredAccounts.find((account) => account.role === expectedRole);
-  const envEmail = accountConfig
-    ? String(process.env[accountConfig.emailEnv] || process.env[accountConfig.legacyEmailEnv] || accountConfig.defaultEmail || '').toLowerCase().trim()
-    : '';
-  const envHash = accountConfig
-    ? String(process.env[accountConfig.passwordHashEnv] || process.env[accountConfig.legacyPasswordHashEnv] || '').trim()
-    : '';
-
-  if (mongoose.connection.readyState === 1) {
-    const admin = await Admin.findOne({ email: normalizedEmail });
-    if (admin && (!expectedRole || admin.role === expectedRole)) {
-      const ok = await bcrypt.compare(pw, admin.passwordHash);
-      if (!ok) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-
-      return res.json({ token: signToken({ id: admin._id, email: admin.email, role: admin.role }) });
-    }
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ message: 'Database not connected. Please try again later.' });
   }
 
-  if (!envEmail || !envHash) {
-    return res.status(503).json({ message: 'Account is not configured. Contact the site owner.' });
-  }
-
-  if (normalizedEmail !== envEmail) {
+  const admin = await Admin.findOne({ email });
+  if (!admin || !(await bcrypt.compare(password, admin.passwordHash))) {
     return res.status(401).json({ message: 'Invalid email or password' });
   }
 
-  const ok = await bcrypt.compare(pw, envHash);
-  if (!ok) {
-    return res.status(401).json({ message: 'Invalid email or password' });
-  }
-
-  return res.json({
-    token: signToken({ id: `env-${expectedRole}`, email: normalizedEmail, role: expectedRole }),
-  });
-};
-
-const ownerLogin = (req, res) => login(req, res, 'owner');
-const employeeLogin = (req, res) => login(req, res, 'employee');
-
-const listActiveEmployees = async (req, res) => {
-  const employees = await Employee.find({ isActive: true })
-    .select('fullName designation profileImage')
-    .sort({ fullName: 1 })
-    .lean();
-  return res.json({ employees });
-};
-
-const selectEmployeeProfile = async (req, res) => {
-  const employeeId = String(req.body?.employeeId || '').trim();
-  if (!mongoose.isValidObjectId(employeeId)) {
-    return res.status(400).json({ message: 'Valid employeeId required' });
-  }
-
-  const employee = await Employee.findOne({ _id: employeeId, isActive: true })
-    .select('fullName designation profileImage')
-    .lean();
-  if (!employee) {
-    return res.status(404).json({ message: 'Active employee profile not found' });
-  }
-
-  return res.json({
-    token: signToken({
-      id: req.auth.id,
-      email: req.auth.email,
-      role: 'employee',
-      selectedEmployeeId: employee._id,
-    }),
-    employee,
-  });
+  return res.json({ token: signToken(admin) });
 };
 
 module.exports = {
   login,
-  ownerLogin,
-  employeeLogin,
   ensureInitialAdmin,
   validateSeedConfiguration,
-  listActiveEmployees,
-  selectEmployeeProfile,
 };

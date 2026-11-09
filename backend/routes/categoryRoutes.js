@@ -1,5 +1,5 @@
 const express = require('express');
-const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
+const { authMiddleware } = require('../middleware/authMiddleware');
 const {
   listCategories,
   createCategory,
@@ -11,8 +11,8 @@ const router = express.Router();
 
 // /api/categories
 router.get('/categories', listCategories);
-router.post('/categories', authMiddleware, requireRole('owner'), createCategory);
-router.put('/categories/:id', authMiddleware, requireRole('owner'), updateCategory);
-router.delete('/categories/:id', authMiddleware, requireRole('owner'), deleteCategory);
+router.post('/categories', authMiddleware, createCategory);
+router.put('/categories/:id', authMiddleware, updateCategory);
+router.delete('/categories/:id', authMiddleware, deleteCategory);
 
 module.exports = router;

@@ -1678,8 +1678,7 @@ a.info-item:hover {
   gap: 14px;
 }
 
-.portal-login-form > .btn,
-.portal-switch-btn {
+.portal-login-form > .btn {
   width: 100%;
   min-height: 48px;
   justify-content: center;
@@ -1687,13 +1686,7 @@ a.info-item:hover {
   white-space: nowrap;
 }
 
-.portal-switch-btn {
-  margin-top: 2px;
-  border-radius: var(--radius-sm);
-}
-
-.portal-login-form > .btn:hover,
-.portal-switch-btn:hover {
+.portal-login-form > .btn:hover {
   transform: translateY(-2px);
 }
 
